@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1c1712">
+<title>Discovery Merge</title>
+<meta name="description" content="Combine identical objects to unlock a branching discovery chain and restore themed scenes.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">🧭</span>
+      <h1>Discovery Merge</h1>
+    </div>
+    <div id="topbar-status" role="status"></div>
+    <nav class="topbar-actions" aria-label="Global">
+      <button id="btn-help" class="ghost">Help</button>
+      <button id="btn-codex" class="ghost">Codex</button>
+      <button id="btn-settings" class="ghost">Settings</button>
+    </nav>
+  </header>
+
+  <main id="screens">
+    <section id="screen-title" class="screen" aria-labelledby="title-h">
+      <h2 id="title-h" class="sr-only">Discovery Merge — home</h2>
+      <div class="title-hero" aria-hidden="true">🧭🗺️🌿</div>
+      <p class="tagline">Restore the explorer’s cabinet, one merge at a time.</p>
+      <button id="btn-play" class="primary big">Play</button>
+      <div class="title-secondary">
+        <button id="btn-daily" class="card-btn">
+          <strong>Daily Cabinet</strong><span id="daily-sub">One shared seed per UTC day</span>
+        </button>
+        <button id="btn-journey" class="card-btn">
+          <strong>Journey</strong><span id="journey-sub">40 stages · 5 scenes</span>
+        </button>
+        <button id="btn-profile" class="card-btn">
+          <strong>Curator Profile</strong><span id="profile-sub">Guest</span>
+        </button>
+      </div>
+      <p id="resume-note" class="resume-note" hidden>
+        <button id="btn-resume" class="primary">Resume paused board</button>
+      </p>
+    </section>
+
+    <section id="screen-modes" class="screen" aria-labelledby="modes-h" hidden>
+      <h2 id="modes-h">Choose a mode</h2>
+      <div class="mode-grid">
+        <button class="card-btn" data-mode="learn"><strong>Learn</strong><span>Interactive lessons — one rule at a time</span></button>
+        <button class="card-btn" data-mode="journey"><strong>Journey</strong><span>Authored stages with mastery tests · ranked</span></button>
+        <button class="card-btn" data-mode="daily"><strong>Daily</strong><span>Shared seed per UTC day · ranked</span></button>
+        <button class="card-btn" data-mode="practice"><strong>Practice</strong><span>Your difficulty, undo allowed · unranked</span></button>
+        <button class="card-btn" data-mode="challenge"><strong>Challenge</strong><span>Move limits, speed targets, dense boards · ranked</span></button>
+        <button class="card-btn" data-mode="scores"><strong>Score Chase</strong><span>Leaderboards &amp; shareable seeds</span></button>
+      </div>
+      <button class="ghost back" data-back>Back</button>
+    </section>
+
+    <section id="screen-journey" class="screen" aria-labelledby="journey-h" hidden>
+      <h2 id="journey-h">Journey</h2>
+      <p class="screen-sub" id="journey-progress-sub"></p>
+      <div id="journey-list" class="journey-list"></div>
+      <button class="ghost back" data-back>Back</button>
+    </section>
+
+    <section id="screen-setup" class="screen" aria-labelledby="setup-h" hidden>
+      <h2 id="setup-h">Set up</h2>
+      <div id="setup-body" class="setup-body"></div>
+      <button class="ghost back" data-back>Back</button>
+    </section>
+
+    <section id="screen-play" class="screen play" aria-labelledby="play-h" hidden>
+      <h2 id="play-h" class="sr-only">Board</h2>
+      <div id="play-wrap">
+        <aside id="rail-left" aria-label="Objectives">
+          <h3>Requests</h3>
+          <div id="requests"></div>
+          <div id="tutorial-panel" hidden>
+            <p id="tutorial-text"></p>
+            <button id="tutorial-finish" class="primary" hidden>Finish lesson</button>
+          </div>
+        </aside>
+        <div id="board-region">
+          <div id="gl-container" aria-hidden="true"></div>
+          <div id="dom-board" role="grid" aria-label="Merge board"></div>
+          <div id="countdown" hidden aria-hidden="true"></div>
+        </div>
+        <aside id="rail-right" aria-label="Status and actions">
+          <div id="score-panel"></div>
+          <div id="moves-panel"></div>
+          <div id="timer-panel"></div>
+          <div class="action-col">
+            <button id="btn-pause" class="ghost">Pause</button>
+            <button id="btn-undo" class="ghost" hidden>Undo</button>
+            <button id="btn-hint" class="ghost">Hint</button>
+            <button id="btn-camera" class="ghost">Reset camera</button>
+          </div>
+        </aside>
+      </div>
+      <div id="mobile-tray">
+        <button id="btn-pause-m" class="ghost">Pause</button>
+        <button id="btn-undo-m" class="ghost" hidden>Undo</button>
+        <button id="btn-hint-m" class="ghost">Hint</button>
+        <button id="btn-objectives-m" class="ghost">Requests</button>
+        <button id="btn-score-m" class="ghost">Score</button>
+      </div>
+    </section>
+
+    <section id="screen-results" class="screen" aria-labelledby="results-h" hidden>
+      <h2 id="results-h">Results</h2>
+      <div id="results-body"></div>
+      <div class="results-actions">
+        <button id="btn-retry" class="primary">Retry</button>
+        <button id="btn-next" class="primary">Next stage</button>
+        <button id="btn-results-home" class="ghost">Home</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="overlay-root"></div>
+  <div id="toast-root" aria-hidden="true"></div>
+  <div id="live-region" class="sr-only" aria-live="polite"></div>
+  <div id="live-assertive" class="sr-only" aria-live="assertive"></div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "discovery-merge",
+  "version": "1.0.0",
+  "description": "Combine identical objects to unlock a branching discovery chain and restore themed scenes.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.mjs"
+  },
+  "license": "MIT"
+}
