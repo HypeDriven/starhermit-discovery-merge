@@ -39,6 +39,7 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
+  '.opus': 'audio/ogg',
 };
 
 // --- daily board persistence ------------------------------------------------

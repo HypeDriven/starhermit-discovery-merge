@@ -1,0 +1,74 @@
+[
+  {
+    "name": "ui-tap",
+    "seconds": 1,
+    "prompt": "A single short crisp wooden tap, like a fingertip knocking once on the drawer of a small wooden explorer's cabinet.",
+    "event": "tap"
+  },
+  {
+    "name": "ui-select",
+    "seconds": 1,
+    "prompt": "A soft quick click of a small brass latch being flicked, light, precise, and close-miked.",
+    "event": "select"
+  },
+  {
+    "name": "item-spawn",
+    "seconds": 1,
+    "prompt": "A soft pop like a cork easing out of a small glass bottle, with a brief airy fizz after it.",
+    "event": "spawn"
+  },
+  {
+    "name": "item-move",
+    "seconds": 1,
+    "prompt": "A small wooden game piece pushed across a felt-lined board, a light slide with a soft scrape and gentle stop.",
+    "event": "move"
+  },
+  {
+    "name": "move-invalid",
+    "seconds": 1,
+    "prompt": "A dull muted double thud of knuckles on a hollow wooden box, short, flat, and discouraging.",
+    "event": "invalid"
+  },
+  {
+    "name": "merge-success",
+    "seconds": 2,
+    "prompt": "Two glass marbles clink together, then a warm rising chime shimmer swells briefly, magical but small and tidy.",
+    "event": "merge"
+  },
+  {
+    "name": "discovery-sparkle",
+    "seconds": 2,
+    "prompt": "A bright sparkle of tiny bells over a short harp glissando, like dust motes glittering in a sunbeam.",
+    "event": "discover"
+  },
+  {
+    "name": "deliver-parcel",
+    "seconds": 1,
+    "prompt": "A paper parcel sliding across a wooden counter and landing with a soft thump, followed by a small stamp press.",
+    "event": "deliver"
+  },
+  {
+    "name": "request-complete",
+    "seconds": 2,
+    "prompt": "A cheerful ink seal stamped firmly on paper, followed by a short triumphant bell ding.",
+    "event": "requestComplete"
+  },
+  {
+    "name": "win-fanfare",
+    "seconds": 3,
+    "prompt": "A small warm brass fanfare swelling to a resolved major chord, like an explorer unveiling a restored exhibit.",
+    "event": "win"
+  },
+  {
+    "name": "lose-sting",
+    "seconds": 2,
+    "prompt": "A gentle descending marimba phrase, disappointed but soft, like a music box slowly winding down.",
+    "event": "lose"
+  },
+  {
+    "name": "undo-whoosh",
+    "seconds": 1,
+    "prompt": "A quick reversed paper-rustle whoosh, like a journal page being flipped back in one motion.",
+    "event": "undo"
+  }
+]

@@ -1,6 +1,8 @@
-// Audio: original synthesized transients on Web Audio buses (music, effects,
-// ambience) with independent volume sliders, focus/background muting, and
-// seeded pitch variants so replays sound consistent.
+// Audio: authored sample one-shots (sfx/<name>.opus, see sfx/manifest.json)
+// lazily fetched and decoded after the user-gesture unlock, played through the
+// effects bus; original synthesized transients remain as the fallback while a
+// sample is loading or unavailable. Music, ambience, and volume/mute handling
+// are unchanged.
 
 import { createRng, rngNext } from './engine/rng.js';
 
@@ -13,6 +15,7 @@ export class AudioEngine {
     this._musicTimer = null;
     this._ambientNodes = null;
     this._unlocked = false;
+    this._sfxCache = new Map();
   }
 
   _ensure() {
@@ -79,21 +82,67 @@ export class AudioEngine {
     return 0.94 + rngNext(this.rng) * 0.12;
   }
 
+  // Sample one-shots: lazy fetch/decode/cache after unlock -------------------
+
+  // Event → sample basename (sfx/<name>.opus). Each event below prefers its
+  // mapped sample and falls back to synthesis while it loads or if it fails.
+  _sfxPlay(name) {
+    if (!this.ctx || !this._unlocked) return false;
+    const entry = this._sfxCache.get(name);
+    if (entry && entry.buffer) {
+      if (this.settings.muted) return true;
+      const src = this.ctx.createBufferSource();
+      src.buffer = entry.buffer;
+      src.connect(this.buses.effects);
+      src.start();
+      return true;
+    }
+    if (!entry) this._sfxLoad(name);
+    return false;
+  }
+
+  _sfxLoad(name) {
+    const entry = { buffer: null };
+    this._sfxCache.set(name, entry);
+    fetch(`sfx/${name}.opus`)
+      .then((r) => { if (!r.ok) throw new Error(`sfx ${name}: HTTP ${r.status}`); return r.arrayBuffer(); })
+      .then((data) => this.ctx.decodeAudioData(data))
+      .then((buffer) => { entry.buffer = buffer; })
+      .catch(() => { /* keep entry with null buffer: synthesis stays as fallback */ });
+  }
+
   // Event → sound mapping --------------------------------------------------
 
-  tap() { this._tone({ freq: 520 * this._variant(), type: 'triangle', decay: 0.09, gain: 0.18 }); }
-  spawn() { this._tone({ freq: 340 * this._variant(), type: 'triangle', decay: 0.12, gain: 0.15, slide: 80 }); }
-  select() { this._tone({ freq: 660, type: 'sine', decay: 0.06, gain: 0.1 }); }
-  move() { this._tone({ freq: 260 * this._variant(), type: 'sine', decay: 0.1, gain: 0.12 }); }
-  invalid() { this._tone({ freq: 140, type: 'sawtooth', decay: 0.16, gain: 0.1 }); }
+  tap() {
+    if (this._sfxPlay('ui-tap')) return;
+    this._tone({ freq: 520 * this._variant(), type: 'triangle', decay: 0.09, gain: 0.18 });
+  }
+  spawn() {
+    if (this._sfxPlay('item-spawn')) return;
+    this._tone({ freq: 340 * this._variant(), type: 'triangle', decay: 0.12, gain: 0.15, slide: 80 });
+  }
+  select() {
+    if (this._sfxPlay('ui-select')) return;
+    this._tone({ freq: 660, type: 'sine', decay: 0.06, gain: 0.1 });
+  }
+  move() {
+    if (this._sfxPlay('item-move')) return;
+    this._tone({ freq: 260 * this._variant(), type: 'sine', decay: 0.1, gain: 0.12 });
+  }
+  invalid() {
+    if (this._sfxPlay('move-invalid')) return;
+    this._tone({ freq: 140, type: 'sawtooth', decay: 0.16, gain: 0.1 });
+  }
 
   merge(tier = 1) {
+    if (this._sfxPlay('merge-success')) return;
     const base = 300 * Math.pow(1.2, tier);
     this._tone({ freq: base * this._variant(), type: 'triangle', decay: 0.22, gain: 0.22, slide: base * 0.5 });
     this._tone({ freq: base * 1.5, type: 'sine', decay: 0.3, gain: 0.12 });
   }
 
   discover() {
+    if (this._sfxPlay('discovery-sparkle')) return;
     const base = 500;
     [0, 4, 7].forEach((semi, i) => {
       setTimeout(() => this._tone({
@@ -102,27 +151,36 @@ export class AudioEngine {
     });
   }
 
-  deliver() { this._tone({ freq: 440, type: 'triangle', decay: 0.15, gain: 0.2, slide: 220 }); }
+  deliver() {
+    if (this._sfxPlay('deliver-parcel')) return;
+    this._tone({ freq: 440, type: 'triangle', decay: 0.15, gain: 0.2, slide: 220 });
+  }
 
   requestComplete() {
+    if (this._sfxPlay('request-complete')) return;
     [523, 659, 784].forEach((f, i) => {
       setTimeout(() => this._tone({ freq: f, type: 'triangle', decay: 0.35, gain: 0.18 }), i * 90);
     });
   }
 
   win() {
+    if (this._sfxPlay('win-fanfare')) return;
     [392, 494, 587, 784].forEach((f, i) => {
       setTimeout(() => this._tone({ freq: f, type: 'triangle', decay: 0.5, gain: 0.2 }), i * 130);
     });
   }
 
   lose() {
+    if (this._sfxPlay('lose-sting')) return;
     [330, 277, 220].forEach((f, i) => {
       setTimeout(() => this._tone({ freq: f, type: 'sine', decay: 0.4, gain: 0.15 }), i * 160);
     });
   }
 
-  undo() { this._tone({ freq: 480, type: 'sine', decay: 0.12, gain: 0.12, slide: -160 }); }
+  undo() {
+    if (this._sfxPlay('undo-whoosh')) return;
+    this._tone({ freq: 480, type: 'sine', decay: 0.12, gain: 0.12, slide: -160 });
+  }
 
   // Quiet ambience: filtered noise bed -------------------------------------
 
