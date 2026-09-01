@@ -6,7 +6,7 @@ import { GameSession } from './session.js';
 import { BoardRenderer } from './render.js';
 import { DomBoard, PlayController, el, announce, toast, openModal } from './ui.js';
 import { AudioEngine } from './audio.js';
-import { Platform } from './platform.js';
+import { Platform } from './platform.js?v=production-qa-1';
 import {
   loadSave, storeSave, storeSnapshot, loadSnapshot, clearSnapshot,
   ACHIEVEMENTS, DEFAULT_SETTINGS,
