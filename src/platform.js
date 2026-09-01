@@ -19,6 +19,7 @@ export class Platform {
     this.clockOffsetMs = 0;
     this.id = guestId();
     this._heartbeatTimer = null;
+    this.staticPlatformHost = /^[0-9a-f-]{36}\.starhermit\.com$/i.test(location.hostname);
   }
 
   async init() {
@@ -30,6 +31,7 @@ export class Platform {
   }
 
   async _fetch(path, opts = {}) {
+    if (this.staticPlatformHost) return { ok: false, error: 'offline', status: 0 };
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), API_TIMEOUT);
     try {
