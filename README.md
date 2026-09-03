@@ -14,7 +14,7 @@ Or serve the directory with any static file server — the game is fully playabl
 
 ```sh
 npm test                # rules/content unit, property, fuzz, and winnability tests
-node test/e2e.smoke.mjs # with the server running: replay-validated score submission
+node tests/e2e.smoke.mjs # with the server running: replay-validated score submission
 ```
 
 A headless QA hook is available at `?selftest=1` (plays a scripted practice round and reports on `<body data-selftest>`).

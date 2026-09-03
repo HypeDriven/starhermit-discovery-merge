@@ -1,6 +1,6 @@
 // E2E smoke: solve today's daily with the greedy solver, submit the replay
 // envelope to a running server, expect validation + rank; then verify a
-// tampered score is rejected. Usage: node test/e2e.smoke.mjs [port]
+// tampered score is rejected. Usage: node tests/e2e.smoke.mjs [port]
 import { createGame, applyCommand, legalActions, stateHash, totalScore } from '../src/engine/rules.js';
 import { dailyLevel } from '../src/content.js';
 import { createRng, rngInt } from '../src/engine/rng.js';

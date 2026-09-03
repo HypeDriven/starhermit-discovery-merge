@@ -7,9 +7,9 @@ alongside the game's own unit tests and end-to-end smoke.
 
 | Check | Result |
 | --- | --- |
-| `npm test` (`node --test test/*.test.mjs`) | 27/27 pass, 0 fail |
-| `node --check` on all modules | clean (`src/**/*.js`, `server.js`, `test/*.mjs`) |
-| `test/e2e.smoke.mjs` (against `PORT=39310 node server.js`) | PASS — valid submission ranked, tampered score rejected with `score-mismatch`, board readback correct |
+| `npm test` (`node --test tests/*.test.mjs`) | 27/27 pass, 0 fail |
+| `node --check` on all modules | clean (`src/**/*.js`, `server.js`, `tests/*.mjs`) |
+| `tests/e2e.smoke.mjs` (against `PORT=39310 node server.js`) | PASS — valid submission ranked, tampered score rejected with `score-mismatch`, board readback correct |
 | HTTP fuzz of `server.js` (directories, traversal, malformed encodings, 20 malformed bodies + odd query strings on all 6 API routes) | survived; no crash, no traversal |
 
 ## Confirmed defects
@@ -120,14 +120,14 @@ All three were reproduced against a running copy of `server.js`.
 
 ## Not tested
 
-- The browser UI: `test/e2e.smoke.mjs` is HTTP/engine-level only, and there is no headless-browser suite.
+- The browser UI: `tests/e2e.smoke.mjs` is HTTP/engine-level only, and there is no headless-browser suite.
   Rendering, input, accessibility and responsive layout were not exercised.
 - Audio output (`src/audio.js`).
 - SSE/live features — this game has none.
 
 ## Runtime artefacts
 
-Starting `server.js` and running the shipped `test/e2e.smoke.mjs` created an untracked `data/` directory
+Starting `server.js` and running the shipped `tests/e2e.smoke.mjs` created an untracked `data/` directory
 (the leaderboard store) inside this game folder. It is runtime state, not a source change; it is being
 cleaned up centrally. The three exploits above were run against a **copy** of the game in a scratch
 directory, so no forged entry was written to this folder's boards — only the shipped smoke test's
