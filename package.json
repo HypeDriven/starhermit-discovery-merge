@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "node tests/e2e.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "playwright-core": "^1.62.1"
+  }
 }

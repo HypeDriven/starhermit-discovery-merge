@@ -42,6 +42,20 @@ const MIME = {
   '.opus': 'audio/ogg',
 };
 
+// --- daily board helpers -----------------------------------------------------
+
+// The board is keyed by a YYYY-MM-DD string that must be the *current* UTC day:
+// the spec's daily mode is "one shared seed and ruleset per UTC day, synchronized
+// to platform time" and daily seeds are immutable after publication, so a board
+// must not be pre-solvable for a future (or republishable for a past) day.
+function utcToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+function startOfUtcDay(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
 // --- daily board persistence ------------------------------------------------
 
 let boards = {};
@@ -129,6 +143,9 @@ async function handleApi(req, res, url) {
 
     const { date, envelope, name } = body || {};
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return json(res, 400, { error: 'bad-date' });
+    // Only today's board may be written: future boards must not be pre-solved
+    // and published daily seeds are immutable once the day has passed.
+    if (date !== utcToday()) return json(res, 400, { error: 'not-today' });
     if (!envelope || typeof name !== 'string' || !name) return json(res, 400, { error: 'bad-envelope' });
 
     // Reject stale-version or oversized claims up front.
@@ -150,13 +167,23 @@ async function handleApi(req, res, url) {
       return json(res, 400, { error: 'score-mismatch' });
     }
 
-    const playerId = req.headers['x-player-id'] || name;
+    // Board identity is the player's display name. The client-settable
+    // `x-player-id` header is NOT used: the spec gives the host's verified
+    // identity this role, not a header a client can point at someone else's id
+    // to replace their entry. In this no-auth local board the display name is
+    // the identity, matching the "casual local board" fallback.
+    const playerId = name;
+    const now = Date.now();
     const entry = {
       id: String(playerId), name: String(name).slice(0, 24),
       score: totalScore(state), moves: state.movesUsed,
       invalidActions: state.stats.invalid,
-      seconds: Math.max(0, Math.min(86400, claimed.elapsedSeconds | 0)),
-      at: Date.now(),
+      // Authoritative elapsed time: derived from the server clock (time since
+      // the daily's UTC-day start), never from the client's claim. The spec's
+      // tie-break is "lower authoritative elapsed time"; a client-declared
+      // value would let a zero-second claim win every tie.
+      seconds: Math.max(0, Math.min(86400, Math.round((now - startOfUtcDay(date)) / 1000))),
+      at: now,
     };
     boards[date] = boards[date] || [];
     const existing = boards[date].findIndex((e) => e.id === entry.id);

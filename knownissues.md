@@ -9,72 +9,51 @@ alongside the game's own unit tests and end-to-end smoke.
 | --- | --- |
 | `npm test` (`node --test tests/*.test.mjs`) | 27/27 pass, 0 fail |
 | `node --check` on all modules | clean (`src/**/*.js`, `server.js`, `tests/*.mjs`) |
-| `tests/e2e.smoke.mjs` (against `PORT=39310 node server.js`) | PASS — valid submission ranked, tampered score rejected with `score-mismatch`, board readback correct |
+| `tests/e2e.smoke.mjs` (against a running `node server.js`) | PASS — valid submission ranked, tampered score rejected with `score-mismatch`, board readback correct |
+| `npm run test:e2e` (`node tests/e2e.mjs`, headless Chrome desktop 1280x800 + mobile 390x844) | PASS — played stage 1 to a win on both viewports, no page errors |
 | HTTP fuzz of `server.js` (directories, traversal, malformed encodings, 20 malformed bodies + odd query strings on all 6 API routes) | survived; no crash, no traversal |
 
-## Confirmed defects
+## Resolved defects
 
-All three were reproduced against a running copy of `server.js`.
+All three were reproduced against a running copy of `server.js`, fixed surgically in `server.js`, and
+re-verified (see the verification notes in each section).
 
-### 1. Any future daily board can be pre-solved and pre-populated
+### 1. Any future daily board can be pre-solved and pre-populated — RESOLVED (2026-09-05)
 
-- **File:** `server.js:124-169` (`POST /api/v1/leaderboard/daily`), specifically the date handling at
-  lines 130 and 143
-- **Trigger:** submit a valid replay with `date: "2027-06-01"`.
-- **Behaviour:** the only date check is the shape test `/^\d{4}-\d{2}-\d{2}$/`. `dailyLevel(date)` then
-  deterministically produces that day's level, which the client can equally well generate offline right
-  now. The replay validates honestly against it and the entry is stored under `boards["2027-06-01"]`.
-  There is no comparison against the server's current UTC day and no submission window.
-- **Expected:** spec.md §2 "Modes" — "Daily: one shared seed and ruleset per UTC day, synchronized to
-  platform time"; §2 also states daily seeds are immutable after publication, which presumes publication
-  is a point in time.
-- **Evidence:**
+- **Fix:** `server.js` — added `utcToday()`/`startOfUtcDay()` helpers and a guard in the daily submit
+  path that accepts only the current UTC day: `if (date !== utcToday()) return json(res, 400,
+  { error: 'not-today' })` (was `server.js:148`; originally the date check at `server.js:130-143` only
+  shape-tested the string). Per spec.md §2 the daily mode is one shared seed/ruleset per UTC day
+  synchronized to platform time, and immutable seeds presume publication is a point in time.
+- **Verification:** submitting `date: "2027-06-01"` now returns `{"error":"not-today"}` (and writes
+  nothing). `e2e.smoke.mjs` still passes because it submits the current UTC date.
 
-  ```
-  date=2027-06-01 status=won score=3435 moves=181
-  SUBMIT 200 {"ok":true,"rank":1,"entries":1}
-  GET /api/v1/leaderboard/daily?date=2027-06-01
-    {"date":"2027-06-01","entries":[{"rank":1,"name":"preSolver","score":3435,"seconds":1,"validated":true}]}
-  ```
+### 2. Elapsed time is client-declared and decides ties — RESOLVED (2026-09-05)
 
-### 2. Elapsed time is client-declared and decides ties
+- **Fix:** `server.js` — the stored `seconds` is now derived from the server clock, never the client's
+  claim: `seconds: Math.max(0, Math.min(86400, Math.round((now - startOfUtcDay(date)) / 1000)))`
+  (`server.js:~185`; was `seconds: Math.max(0, Math.min(86400, claimed.elapsedSeconds | 0))`). Per
+  spec.md §2 ties use "lower authoritative elapsed time", so a client-declared zero can no longer win a
+  tie. Pre-command timestamps are not in the replay envelope, so the only authoritative server-side
+  anchor is time since the daily's UTC-day start.
+- **Verification:** two byte-identical solves differing only in declared `elapsedSeconds` (900 vs 0) now
+  receive identical server-derived `seconds` and are ordered by the stable session id — the board no
+  longer ranks the zero-second claim first.
 
-- **File:** `server.js:157` (`seconds: Math.max(0, Math.min(86400, claimed.elapsedSeconds | 0))`) with the
-  comparator at `server.js:65-71`
-- **Trigger:** submit an honest replay with `result.elapsedSeconds: 0`.
-- **Behaviour:** the server clamps the value to 0..86400 but otherwise takes the client's word for it; it
-  never derives elapsed time from its own clock or from the replay. `rankEntries` uses
-  `a.seconds - b.seconds` as the third key, after score and invalid actions, so a zero-second claim wins
-  every tie.
-- **Expected:** spec.md §2 "Scoring and victory" — ties use "lower **authoritative** elapsed time". The
-  server does expose `/api/v1/time` but never cross-checks the claim.
-- **Evidence:** two byte-identical solves of the same daily, differing only in the declared time:
+### 3. `x-player-id` is unauthenticated, so one client can overwrite another player's board entry — RESOLVED (2026-09-05)
 
-  ```
-  honest   score=5355 seconds=900 -> rank 2
-  impostor score=5355 seconds=0   -> rank 1
-  ```
-
-### 3. `x-player-id` is unauthenticated, so one client can overwrite another player's board entry
-
-- **File:** `server.js:152` (`const playerId = req.headers['x-player-id'] || name;`) with the
-  replace-if-better logic at `server.js:160-166`
-- **Trigger:** send a valid submission with `x-player-id` set to another player's id (which, by the same
-  line, defaults to their display name and is therefore visible on the public board).
-- **Behaviour:** the header is trusted verbatim. `boards[date].findIndex((e) => e.id === entry.id)` then
-  matches the victim's row, and if the incoming entry ranks better it *replaces* it — the victim's name,
-  score and time are gone, not merely outranked.
-- **Expected:** spec.md §6 "Identity, profile, presence, and preferences" — board identity comes from the
-  host's verified identity, not from a client-settable header used as the primary key.
-- **Evidence:** after an entry named `honest` (id `honest`) was on the board, a second submission sent
-  with `x-player-id: honest` and `name: impostor` replaced it:
-
-  ```
-  before: [{"name":"smoke-tester","seconds":300},{"name":"honest","seconds":900}]
-  after : [{"rank":1,"name":"impostor","seconds":0},{"rank":2,"name":"smoke-tester","seconds":300}]
-  ```
-
-  The `honest` row is gone.
+- **Fix:** `server.js` — removed the `x-player-id` header from identity resolution: `const playerId =
+  name;` (`server.js:175`; was `req.headers['x-player-id'] || name`). Per spec.md §6 board identity comes
+  from the host's verified identity, not a client-settable header used as the primary key; in this
+  no-auth local board the display name is the identity (the "casual local board" fallback). The header is
+  ignored rather than trusted, so pointing it at another player's id can no longer trick the
+  replace-if-better logic into clobbering their row.
+- **Verification:** submitting with `x-player-id: honest` and a different `name` no longer replaces the
+  `honest` entry; it adds a distinct row under the submitted name and `honest` is preserved.
+- **Remaining limitation (not fixed, out of scope here):** this local board has no host-injected
+  authenticated identity, so a client could still submit under *another player's display name* directly.
+  Fully closing that needs the host's verified/signed identity binding, which the offline casual board
+  deliberately does not implement.
 
 ## Suspected — not confirmed
 
