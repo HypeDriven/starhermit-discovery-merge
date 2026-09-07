@@ -80,7 +80,10 @@ button.back { margin-top: 1rem; }
   padding: 1.2rem clamp(0.8rem, 4vw, 3rem);
   max-width: 100%;
 }
-.screen[hidden] { display: none; }
+/* Id-selector screen rules below are more specific than `.screen[hidden]`, so
+   hiding is asserted per-screen too — otherwise a hidden screen keeps painting
+   behind the visible one. */
+.screen[hidden], #screen-title[hidden] { display: none; }
 .screen h2 { margin-top: 0; }
 .screen-sub { color: var(--ink-dim); margin-top: -0.6rem; }
 
@@ -186,6 +189,13 @@ button.back { margin-top: 1rem; }
   gap: 6px;
 }
 #dom-board.visible { display: grid; }
+/* In 3D mode the semantic board stays in the accessibility tree and stays
+   keyboard-operable (visually hidden, never display:none — display:none would
+   make the cells unfocusable and leave 3D mode with no keyboard play). */
+#dom-board.mirror {
+  display: grid; width: 1px; height: 1px; inset: auto; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%);
+}
 .dm-cell {
   position: relative; border-radius: 10px; padding: 0;
   background: #2b231b; border: 1px solid #463a2c;
@@ -278,7 +288,8 @@ button.back { margin-top: 1rem; }
 
 /* --- accessibility modes ------------------------------------------------- */
 
-body.large-text { font-size: 20px; }
+/* Applied to <html> as well as <body>: rem-sized UI keys off the root. */
+html.large-text, body.large-text { font-size: 20px; }
 body.high-contrast {
   --bg: #000; --panel: #0d0d0d; --panel-2: #1a1a1a;
   --ink: #fff; --ink-dim: #d8d8d8; --accent: #ffd24d; --accent-2: #66c2ff;

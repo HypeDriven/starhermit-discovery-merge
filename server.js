@@ -172,10 +172,12 @@ async function handleApi(req, res, url) {
     // identity this role, not a header a client can point at someone else's id
     // to replace their entry. In this no-auth local board the display name is
     // the identity, matching the "casual local board" fallback.
-    const playerId = name;
+    // The stored id is the *displayed* name, so a client can recognise its own
+    // row on the board it reads back (names are truncated for display).
+    const playerId = String(name).slice(0, 24);
     const now = Date.now();
     const entry = {
-      id: String(playerId), name: String(name).slice(0, 24),
+      id: playerId, name: playerId,
       score: totalScore(state), moves: state.movesUsed,
       invalidActions: state.stats.invalid,
       // Authoritative elapsed time: derived from the server clock (time since
@@ -202,10 +204,15 @@ async function handleApi(req, res, url) {
 
 // --- static files -------------------------------------------------------------
 
-const STATIC_CACHE = { '.js': 'public, max-age=3600', '.css': 'public, max-age=3600' };
+// Modules and stylesheets are unhashed and cross-import each other, so a
+// long max-age can pair a fresh entry point with stale siblings. Revalidate.
+const STATIC_CACHE = { '.js': 'no-cache', '.css': 'no-cache' };
 
 function serveStatic(req, res, url) {
-  let path = decodeURIComponent(url.pathname);
+  // A malformed percent-encoding is a bad request, not a server fault.
+  let path;
+  try { path = decodeURIComponent(url.pathname); }
+  catch { res.writeHead(400); return res.end('bad request'); }
   if (path === '/') path = '/index.html';
   const filePath = normalize(join(ROOT, path));
   if (!filePath.startsWith(ROOT)) { res.writeHead(403); return res.end('forbidden'); }

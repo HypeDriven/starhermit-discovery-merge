@@ -240,6 +240,7 @@ async function runPass(browser, vp) {
     hasTouch: isMobile,
     isMobile,
   });
+  await context.addInitScript(() => localStorage.setItem('discovery-merge.guest.v1', 'guest-4294967295-4294967295'));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -285,14 +286,14 @@ async function runPass(browser, vp) {
       if (total !== 40) throw new Error(`expected 40 stage buttons, got ${total}`);
       const unlocked = await page.locator('.stage-btn:not(.locked)').count();
       if (unlocked !== 1) throw new Error(`expected 1 unlocked stage, got ${unlocked}`);
-      // Known game bug (reported, not fixed here): #screen-title's
-      // `display:flex` ID rule outranks `.screen[hidden]`, so the title
-      // screen stays painted under every other screen. Log it, don't fail.
+      // Regression guard: #screen-title's `display:flex` ID rule used to
+      // outrank `.screen[hidden]`, leaving the title screen painted under
+      // every other screen.
       const titleDisplay = await page.evaluate(
         () => getComputedStyle(document.getElementById('screen-title')).display,
       );
       if (titleDisplay !== 'none') {
-        console.log(`  note: [${vp.name}] cosmetic bug — #screen-title still rendered (display:${titleDisplay}) behind journey screen`);
+        throw new Error(`hidden #screen-title is still rendered (display:${titleDisplay})`);
       }
       await page.screenshot({ path: SHOT('journey', vp.name) });
     });
@@ -365,6 +366,21 @@ async function runPass(browser, vp) {
       await page.click('#btn-results-home');
       await page.waitForSelector('#screen-title:not([hidden])');
       await page.screenshot({ path: SHOT('home-after-win', vp.name) });
+    });
+    await step('daily board highlights the shortened guest display name', async () => {
+      await page.route('**/api/v1/leaderboard/daily?*', route => route.fulfill({
+        json: { entries: [
+          { name: 'another-player', score: 200 },
+          { name: 'guest-4294967295-4294967295'.slice(0, 24), score: 100 },
+        ] },
+      }));
+      await page.click('#btn-play');
+      await page.click('[data-mode="scores"]');
+      await page.waitForSelector('.board-table tr.me');
+      const highlighted = page.locator('.board-table tr.me');
+      if (await highlighted.count() !== 1 || !(await highlighted.textContent()).includes('guest-')) {
+        throw new Error('Daily board must highlight only the current guest');
+      }
     });
   } finally {
     await context.close();

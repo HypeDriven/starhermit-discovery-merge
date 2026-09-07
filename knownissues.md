@@ -13,6 +13,43 @@ alongside the game's own unit tests and end-to-end smoke.
 | `npm run test:e2e` (`node tests/e2e.mjs`, headless Chrome desktop 1280x800 + mobile 390x844) | PASS — played stage 1 to a win on both viewports, no page errors |
 | HTTP fuzz of `server.js` (directories, traversal, malformed encodings, 20 malformed bodies + odd query strings on all 6 API routes) | survived; no crash, no traversal |
 
+## Review pass 2026-09-07 — client/UI defects fixed
+
+Checks: `npm test` 27/27 pass · `npm run test:e2e` PASS (desktop + mobile) · `tests/e2e.smoke.mjs`
+against a running `server.js` PASS · targeted headless-Chrome checks of every fix below PASS.
+
+1. **Hidden screens kept painting.** `#screen-title { display: flex }` (id selector) outranked
+   `.screen[hidden] { display: none }`, so the title screen stayed visible under every other screen.
+   `css/style.css` now hides it explicitly; `tests/e2e.mjs` asserts it instead of logging a note.
+2. **No keyboard or screen-reader play in 3D mode.** `#dom-board` was `display: none` unless the 2D
+   fallback was on, making the semantic mirror unfocusable — spec §"full keyboard operation, DOM
+   equivalents for canvas controls". It is now visually hidden but focusable (`.mirror`), and DOM
+   focus rings a matching marker in the 3D scene.
+3. **Autosave wrote the wrong session after a resume.** The 1 s snapshot timer captured the throwaway
+   session created by `startLevel()`, so resuming a board immediately overwrote it with a fresh one.
+   It now snapshots `current.session`.
+4. **A resumed board's clock never advanced.** `GameSession.restore()` returns a paused session and
+   nothing resumed it; `startRestored()` now does.
+5. **Resuming a ranked board granted undo.** `resumeSnapshot()` passed `allowUndo: true`
+   unconditionally; it now derives the flag from the snapshot's level mode (practice/learn only).
+6. **Play controllers leaked listeners.** Each round added document/canvas listeners that were never
+   removed, so after two restarts one Esc opened three pause modals. `PlayController` now owns an
+   `AbortController` and `destroy()` runs from `teardownCurrent()`.
+7. **"Larger text" barely did anything.** The class was applied to `<body>` while the rem-sized UI
+   scales from `<html>`. Applied to both now.
+8. **Merge hints showed no marker in 3D.** `setHint()` only read `hint.cell`; merge hints carry
+   `from`/`to`.
+9. **Duplicate favicon.** An inline data-URI `<link rel="icon">` after `favicon.svg` overrode the
+   game's own artwork.
+10. **Toasts were hidden from assistive tech.** `#toast-root` carried `aria-hidden="true"` while its
+    children used `role="status"`.
+11. **Server:** a malformed percent-encoded path returned 500 (now 400); board rows stored an
+    untruncated id alongside a truncated display name, so a client could never match its own row;
+    unhashed `.js`/`.css` were cached for an hour, which can pair a fresh entry point with stale
+    sibling modules (now `no-cache`).
+12. **Licensing:** added the required root `LICENSE.md` (PolyForm Noncommercial 1.0.0) and corrected
+    `package.json`, which still declared MIT.
+
 ## Resolved defects
 
 All three were reproduced against a running copy of `server.js`, fixed surgically in `server.js`, and

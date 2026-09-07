@@ -553,8 +553,10 @@ export class BoardRenderer {
   }
 
   setHint(hint) {
-    if (hint && hint.cell !== undefined) {
-      const p = this.cellToWorld(hint.cell ?? hint.from);
+    // Merge hints carry from/to rather than a single cell — ring the source.
+    const cell = hint ? (hint.cell ?? hint.from) : undefined;
+    if (cell !== undefined && this.level) {
+      const p = this.cellToWorld(cell);
       this.hintRing.position.set(p.x, 0.02, p.z);
       this.hintRing.visible = true;
     } else {

@@ -222,9 +222,17 @@ export class PlayController {
     this.inputLocked = false;
     this.tutorial = deps.session.level.tutorial || null;
     this.tutorialStep = 0;
+    // One abort signal for every listener this controller owns, so a retry or
+    // a new round cannot leave a previous controller listening on document.
+    this._abort = new AbortController();
     this._bindPointer();
     this._bindKeys();
     if (this.tutorial) this._announceStep();
+  }
+
+  // Detach every listener; the controller is dead afterwards.
+  destroy() {
+    this._abort.abort();
   }
 
   get state() { return this.session.state; }
@@ -367,13 +375,14 @@ export class PlayController {
     if (!canvasHost) return;
     let down = null;
     const DRAG_PX = 12;
+    const opts = { signal: this._abort.signal };
 
     canvasHost.addEventListener('pointerdown', (e) => {
       if (!this.renderer) return;
       const cell = this.renderer.cellAt(e.clientX, e.clientY);
       down = { cell, x: e.clientX, y: e.clientY, dragging: false, id: e.pointerId };
       canvasHost.setPointerCapture(e.pointerId);
-    });
+    }, opts);
     canvasHost.addEventListener('pointermove', (e) => {
       if (!down || !this.renderer) return;
       if (!down.dragging && Math.hypot(e.clientX - down.x, e.clientY - down.y) > DRAG_PX) {
@@ -390,7 +399,7 @@ export class PlayController {
         const elUnder = document.elementFromPoint(e.clientX, e.clientY);
         this._dragOverRequest = elUnder?.closest?.('.request-card')?.dataset?.request || null;
       }
-    });
+    }, opts);
     const finish = (e, cancelled) => {
       if (!down) return;
       const d = down;
@@ -413,9 +422,9 @@ export class PlayController {
       else if (!it) this.dispatch({ type: 'move', from: d.cell, to: target });
       else this.dispatch({ type: 'merge', from: d.cell, to: target }); // produces the right invalid reason
     };
-    canvasHost.addEventListener('pointerup', (e) => finish(e, false));
-    canvasHost.addEventListener('pointercancel', (e) => finish(e, true));
-    canvasHost.addEventListener('lostpointercapture', () => { down = null; this.renderer?.setDragTarget(-1); });
+    canvasHost.addEventListener('pointerup', (e) => finish(e, false), opts);
+    canvasHost.addEventListener('pointercancel', (e) => finish(e, true), opts);
+    canvasHost.addEventListener('lostpointercapture', () => { down = null; this.renderer?.setDragTarget(-1); }, opts);
   }
 
   _bindKeys() {
@@ -427,7 +436,7 @@ export class PlayController {
       else if (k === 'u') this.doUndo();
       else if (k === 'h') this.showHint();
       else if (k === 'c') this.renderer?.resetCamera();
-    });
+    }, { signal: this._abort.signal });
   }
 
   doUndo() {

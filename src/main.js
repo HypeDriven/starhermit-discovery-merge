@@ -6,7 +6,7 @@ import { GameSession } from './session.js';
 import { BoardRenderer } from './render.js';
 import { DomBoard, PlayController, el, announce, toast, openModal } from './ui.js';
 import { AudioEngine } from './audio.js';
-import { Platform } from './platform.js?v=production-qa-1';
+import { Platform } from './platform.js?v=production-qa-2';
 import {
   loadSave, storeSave, storeSnapshot, loadSnapshot, clearSnapshot,
   ACHIEVEMENTS, DEFAULT_SETTINGS,
@@ -43,6 +43,8 @@ function applySettings() {
   document.body.classList.toggle('reduced-motion', !!s.reducedMotion);
   document.body.classList.toggle('high-contrast', !!s.highContrast);
   document.body.classList.toggle('large-text', !!s.largeText);
+  // rem-sized UI scales from the root element, not from <body>.
+  document.documentElement.classList.toggle('large-text', !!s.largeText);
   document.body.classList.toggle('colorblind', !!s.colorBlind);
   audio.applyVolumes();
   current?.renderer?.applyQuality(s.quality || 'auto');
@@ -52,6 +54,9 @@ function applySettings() {
 function updateBoardVisibility() {
   const useDom = save.settings.domBoard || !current?.renderer;
   $('dom-board').classList.toggle('visible', !!current && useDom);
+  // With the 3D board on, keep the semantic board present but visually hidden
+  // so keyboard and screen-reader players can still operate every cell.
+  $('dom-board').classList.toggle('mirror', !!current && !useDom);
   $('gl-container').style.visibility = useDom ? 'hidden' : 'visible';
 }
 
@@ -246,6 +251,7 @@ function openJourney() {
 
 function teardownCurrent() {
   if (!current) return;
+  current.controller?.destroy();
   current.renderer?.dispose();
   clearInterval(snapshotTimer);
   clearInterval(current.hudTimer);
@@ -280,6 +286,8 @@ async function startLevel(level, mode, journeyIndex = null) {
 
   domBoard = domBoard || new DomBoard($('dom-board'), {
     onCell: (cell) => current?.controller?.cellTap(cell),
+    // Mirror keyboard focus into the 3D view so focus is visible there too.
+    onFocus: (cell) => current?.renderer?.setDragTarget(cell),
   });
   domBoard.setLevel(level);
 
@@ -327,7 +335,9 @@ async function startLevel(level, mode, journeyIndex = null) {
   // Periodic snapshot + timer refresh.
   clearInterval(snapshotTimer);
   snapshotTimer = setInterval(() => {
-    if (current && !current.session.finished) storeSnapshot(session.snapshot());
+    // Always snapshot the session currently in play — a restored session
+    // replaces this one after startLevel() returns.
+    if (current && !current.session.finished) storeSnapshot(current.session.snapshot());
     refreshTimer();
   }, 1000);
 
@@ -431,7 +441,6 @@ function refreshHUD() {
   refreshTimer();
 
   // Undo availability.
-  const undoOk = session.canUndo() || (current.mode === 'practice' && !session.finished);
   $('btn-undo').hidden = $('btn-undo-m').hidden = !(current.mode === 'practice' || current.mode === 'learn');
   $('btn-undo').disabled = $('btn-undo-m').disabled = !session.canUndo();
 }
@@ -480,7 +489,13 @@ function resumeSnapshot() {
   const snap = loadSnapshot();
   if (!snap) return;
   try {
-    const session = GameSession.restore(snap, { allowUndo: true });
+    // Undo stays a practice/learn affordance: resuming a ranked board must not
+    // hand it out (the snapshot carries the level, and with it the mode).
+    let snapMode = null;
+    try { snapMode = JSON.parse(snap)?.level?.mode ?? null; } catch { snapMode = null; }
+    const session = GameSession.restore(snap, {
+      allowUndo: snapMode === 'practice' || snapMode === 'learn',
+    });
     teardownCurrent();
     startRestored(session);
   } catch (e) {
@@ -497,6 +512,9 @@ async function startRestored(session) {
   if (current) {
     current.session = session;
     current.controller.session = session;
+    // GameSession.restore() hands back a paused session; without this the
+    // restored board's clock never advances.
+    session.resume();
     current.controller._sync();
     refreshHUD();
   }
@@ -551,7 +569,6 @@ function finishLevel(lessonFinished = false) {
   const unlocked = checkAchievements(session, won, journeyIndex);
 
   // Score submission.
-  let submitNote = null;
   if (won && mode === 'daily' && save.dailies[platform.todayUTC()]) {
     const envelope = session.replayEnvelope();
     platform.submitDaily({ date: platform.todayUTC(), envelope, name: platform.id }).then((r) => {
@@ -568,7 +585,7 @@ function finishLevel(lessonFinished = false) {
   platform.activityEnd(level.id, res.status);
   platform.track('round-end', { mode, level: level.id });
 
-  showResults(res, unlocked, won, submitNote);
+  showResults(res, unlocked, won);
 }
 
 function checkAchievements(session, won, journeyIndex) {
@@ -665,7 +682,7 @@ async function openScores() {
       : 'No entries yet — be the first to restore today’s cabinet.'));
   }
   entries.slice(0, 25).forEach((e2, i) => {
-    table.append(el('tr', { class: e2.me || e2.name === platform.id ? 'me' : '' },
+    table.append(el('tr', { class: e2.me || e2.name === platform.id || e2.name === platform.id.slice(0, 24) ? 'me' : '' },
       el('td', {}, String(i + 1)), el('td', {}, e2.name), el('td', {}, String(e2.score)),
       el('td', {}, String(e2.moves ?? '—')), el('td', {}, e2.seconds != null ? fmtTime(e2.seconds) : '—')));
   });
