@@ -1,0 +1,18 @@
+# Discovery Merge — SFX manifest (canonical). One clip per line:
+# file | event id (AudioEngine method, src/audio.js) | description of the sound | usage context
+# Clips: MOSS-SoundEffect v2.0, 48 kHz mono Opus 96 kbps VBR, loudness-normalised (-20 LUFS), 100 steps. All play on the effects bus; each event keeps a synthesized fallback while its clip loads or if the fetch fails.
+ui-tap.opus | tap | A single short crisp wooden tap, like a fingertip knocking once on the drawer of a small wooden explorer's cabinet | Tapping a Field Kit generator (before the spawn resolves) and tapping an empty cell with nothing selected (PlayController.cellTap)
+ui-select.opus | select | A soft quick click of a small brass latch being flicked, light, precise, and close-miked | A piece is selected or deselected by tap, click, keyboard or drag start (PlayController.select)
+item-spawn.opus | spawn | A soft pop like a cork easing out of a small glass bottle, with a brief airy fizz after it | Rules 'spawn' event: a generator produced a new tier-0/1 piece on a free cell
+item-move.opus | move | A small wooden game piece pushed across a felt-lined board, a light slide with a soft scrape and gentle stop | Rules 'move' event: a piece relocated to an empty cell
+move-invalid.opus | invalid | A dull muted double thud of knuckles on a hollow wooden box, short, flat, and discouraging | Any rejected command (mismatch, webbed, board full, crate tap...), tutorial-gated action, or undo when unavailable
+merge-success.opus | merge | Two glass marbles clink together, then a warm rising chime shimmer swells briefly, magical but small and tidy | Rules 'merge' event: two identical pieces combined into the next tier
+discovery-sparkle.opus | discover | A bright sparkle of tiny bells over a short harp glissando, like dust motes glittering in a sunbeam | Rules 'discover' event: a chain reached a tier never seen in this round (layered after merge/spawn)
+deliver-parcel.opus | deliver | A paper parcel sliding across a wooden counter and landing with a soft thump, followed by a small stamp press | Rules 'deliver' event: a piece handed to a request card
+request-complete.opus | requestComplete | A cheerful ink seal stamped firmly on paper, followed by a short triumphant bell ding | Rules 'request-complete' event: every need on one request card is met
+win-fanfare.opus | win | A small warm brass fanfare swelling to a resolved major chord, like an explorer unveiling a restored exhibit | Rules 'win' event: all requests complete, round ends in a win
+lose-sting.opus | lose | A gentle descending marimba phrase, disappointed but soft, like a music box slowly winding down | Rules 'lost' event: out of actions on a mastery/challenge board, or no legal moves remain
+undo-whoosh.opus | undo | A quick reversed paper-rustle whoosh, like a journal page being flipped back in one motion | Undo restored the previous state (Practice and Learn only)
+hint-glimmer.opus | hint | A soft two-note glass glimmer, like lamplight catching the lens of a small brass magnifier, with a faint tick of a compass needle settling | Hint button / H key rang a legal action on the board (PlayController.showHint)
+web-clear.opus | webClear | A dry old cobweb tearing away and being brushed off a wooden shelf in one quick sweep, with a soft dusty puff | Rules 'merge' event with unwebbed=true: merging onto a cobwebbed twin cleared its web (layered under merge)
+achievement-medal.opus | achievement | A small brass medal set down onto a velvet cushion with a soft muted clink, followed by one warm ceremonial bell note | Results screen shows one or more newly unlocked achievements (showResults in src/main.js)

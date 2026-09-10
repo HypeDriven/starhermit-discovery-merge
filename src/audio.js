@@ -182,6 +182,24 @@ export class AudioEngine {
     this._tone({ freq: 480, type: 'sine', decay: 0.12, gain: 0.12, slide: -160 });
   }
 
+  hint() {
+    if (this._sfxPlay('hint-glimmer')) return;
+    [880, 1175].forEach((f, i) => {
+      setTimeout(() => this._tone({ freq: f, type: 'sine', decay: 0.22, gain: 0.1 }), i * 90);
+    });
+  }
+
+  webClear() {
+    if (this._sfxPlay('web-clear')) return;
+    this._tone({ freq: 220 * this._variant(), type: 'sawtooth', decay: 0.14, gain: 0.07, slide: -120 });
+  }
+
+  achievement() {
+    if (this._sfxPlay('achievement-medal')) return;
+    this._tone({ freq: 660, type: 'triangle', decay: 0.12, gain: 0.14 });
+    setTimeout(() => this._tone({ freq: 1320, type: 'sine', decay: 0.6, gain: 0.12 }), 140);
+  }
+
   // Quiet ambience: filtered noise bed -------------------------------------
 
   _startAmbience() {

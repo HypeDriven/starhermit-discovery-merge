@@ -303,7 +303,7 @@ export class PlayController {
   _playEventSounds(events) {
     for (const e of events) {
       if (e.type === 'spawn') this.audio.spawn();
-      else if (e.type === 'merge') this.audio.merge(e.item.tier);
+      else if (e.type === 'merge') { this.audio.merge(e.item.tier); if (e.unwebbed) this.audio.webClear(); }
       else if (e.type === 'move') this.audio.move();
       else if (e.type === 'deliver') this.audio.deliver();
       else if (e.type === 'discover') { this.audio.discover(); announce(`New discovery: ${itemLabel(e.chain, e.tier)}!`); }
@@ -357,6 +357,7 @@ export class PlayController {
   showHint() {
     const hint = this.session.hint();
     if (!hint) { announce('No moves available.', true); return; }
+    this.audio.hint();
     this.renderer?.setHint(hint);
     this.domBoard.setHint(hint);
     const text = hint.kind === 'tap'

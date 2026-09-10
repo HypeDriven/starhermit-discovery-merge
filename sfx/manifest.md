@@ -16,3 +16,6 @@ Generated with MOSS-SoundEffect v2.0, 48 kHz mono Opus (96 kbps VBR, loudness-no
 | win-fanfare.opus | win | A small warm brass fanfare swelling to a resolved major chord, like an explorer unveiling a restored exhibit. |
 | lose-sting.opus | lose | A gentle descending marimba phrase, disappointed but soft, like a music box slowly winding down. |
 | undo-whoosh.opus | undo | A quick reversed paper-rustle whoosh, like a journal page being flipped back in one motion. |
+| hint-glimmer.opus | hint | A soft two-note glass glimmer, like lamplight catching the lens of a small brass magnifier, with a faint tick of a compass needle settling; gentle, short, and inviting. |
+| web-clear.opus | webClear | A dry old cobweb tearing away and being brushed off a wooden shelf in one quick sweep, with a soft dusty puff and a tiny fibrous crackle; short and satisfying. |
+| achievement-medal.opus | achievement | A small brass medal set down onto a velvet cushion with a soft muted clink, followed by one warm ceremonial bell note that rings and fades; proud, small, and tidy. |

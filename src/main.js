@@ -620,6 +620,13 @@ function showResults(res, unlocked, won) {
     res.terminalReason === 'out-of-moves' ? 'Out of actions' :
     res.terminalReason === 'no-legal-moves' ? 'The board locked up' : 'Round over';
   body.append(el('p', { class: 'results-headline ' + (won ? 'won' : 'lost') }, headline));
+  // Illustration (FLUX key art); hidden if the asset fails to load.
+  const art = el('img', {
+    class: 'results-art', alt: '', 'aria-hidden': 'true', decoding: 'async',
+    src: won ? 'assets/cabinet-restored.webp' : 'assets/cabinet-locked.webp',
+  });
+  art.onerror = () => art.remove();
+  body.append(art);
 
   // Component breakdown (spec: never one unexplained total).
   const grid = el('div', { class: 'results-breakdown', role: 'table', 'aria-label': 'Score breakdown' });
@@ -639,6 +646,7 @@ function showResults(res, unlocked, won) {
   for (const a of unlocked) {
     body.append(el('p', { class: 'achievement-pop' }, `🏅 Achievement unlocked: ${a.name} — ${a.desc}`));
   }
+  if (unlocked.length) audio.achievement();
   announce(`${headline} Total score ${res.total}.`, true);
 
   // Progress / next action.

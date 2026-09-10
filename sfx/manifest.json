@@ -70,5 +70,23 @@
     "seconds": 1,
     "prompt": "A quick reversed paper-rustle whoosh, like a journal page being flipped back in one motion.",
     "event": "undo"
+  },
+  {
+    "name": "hint-glimmer",
+    "seconds": 1,
+    "prompt": "A soft two-note glass glimmer, like lamplight catching the lens of a small brass magnifier, with a faint tick of a compass needle settling; gentle, short, and inviting.",
+    "event": "hint"
+  },
+  {
+    "name": "web-clear",
+    "seconds": 1,
+    "prompt": "A dry old cobweb tearing away and being brushed off a wooden shelf in one quick sweep, with a soft dusty puff and a tiny fibrous crackle; short and satisfying.",
+    "event": "webClear"
+  },
+  {
+    "name": "achievement-medal",
+    "seconds": 2,
+    "prompt": "A small brass medal set down onto a velvet cushion with a soft muted clink, followed by one warm ceremonial bell note that rings and fades; proud, small, and tidy.",
+    "event": "achievement"
   }
 ]
