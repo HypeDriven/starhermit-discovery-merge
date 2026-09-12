@@ -161,6 +161,11 @@ export class BoardRenderer {
 
     this.applyQuality(this.settings.quality || 'auto');
     this.resize();
+    // Follow the container box (screen shows, chat sidebar, orientation).
+    if (typeof ResizeObserver === 'function') {
+      this._ro = new ResizeObserver(() => this.resize());
+      this._ro.observe(this.container);
+    }
     this.renderer.setAnimationLoop((t) => this._frame(t));
     return true;
   }
@@ -687,6 +692,7 @@ export class BoardRenderer {
 
   dispose() {
     this._disposed = true;
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
     this.renderer.setAnimationLoop(null);
     this._clearGroup(this.itemGroup);
     this._clearGroup(this.boardGroup);

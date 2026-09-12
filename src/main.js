@@ -327,6 +327,7 @@ async function startLevel(level, mode, journeyIndex = null) {
   // Present.
   showScreen('play');
   if (renderer) {
+    renderer.resize(); // the container only has a size once the play screen is shown
     renderer.setLevel(level, session.state);
     renderer.setRestoration(restorationFraction());
   }
