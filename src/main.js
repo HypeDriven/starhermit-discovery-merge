@@ -8,7 +8,7 @@ import { DomBoard, PlayController, el, announce, toast, openModal } from './ui.j
 import { AudioEngine } from './audio.js';
 import { Platform } from './platform.js?v=production-qa-2';
 import {
-  loadSave, storeSave, storeSnapshot, loadSnapshot, clearSnapshot,
+  loadSave, storeSave, storeSnapshot, loadSnapshot, clearSnapshot, parseSave,
   ACHIEVEMENTS, DEFAULT_SETTINGS,
 } from './persist.js';
 import {
@@ -33,6 +33,21 @@ let snapshotTimer = null;
 let dailyTimer = null;
 
 function persist() { storeSave(save); }
+
+// Top-bar status: hosted shows the account nickname + cloud sync state.
+function renderStatus() {
+  const el = document.getElementById('topbar-status');
+  if (!el) return;
+  if (platform.hosted) {
+    const name = platform.profile ? platform.profile.name : '…';
+    el.textContent = 'Playing as ' + name + ' · ' +
+      (platform.sync === 'synced' ? 'progress synced'
+        : platform.sync === 'saving' ? 'saving…'
+        : 'cloud sync pending');
+    return;
+  }
+  el.textContent = platform.online ? 'Connected to host' : 'Offline mode — fully playable';
+}
 
 // ---------------------------------------------------------------------------
 // Settings application
@@ -86,7 +101,7 @@ function screenTitleFor(name) {
 function refreshTitle() {
   const done = Object.keys(save.journey.completed).length;
   $('journey-sub').textContent = `${done} / ${JOURNEY_COUNT} stages restored`;
-  $('profile-sub').textContent = platform.id.replace('guest-', 'Guest ·');
+  $('profile-sub').textContent = platform.displayName;
   const today = platform.todayUTC();
   const d = save.dailies[today];
   $('daily-sub').textContent = d?.completed ? `Done today — best ${d.score}` : 'One shared seed per UTC day';
@@ -571,11 +586,11 @@ function finishLevel(lessonFinished = false) {
   // Score submission.
   if (won && mode === 'daily' && save.dailies[platform.todayUTC()]) {
     const envelope = session.replayEnvelope();
-    platform.submitDaily({ date: platform.todayUTC(), envelope, name: platform.id }).then((r) => {
+    platform.submitDaily({ date: platform.todayUTC(), envelope, name: platform.displayName }).then((r) => {
       if (r.ok) toast(`Daily score submitted (rank #${r.rank ?? '—'})`);
       else {
         // Casual fallback: local board only.
-        save.leaderboardLocal.push({ name: platform.id, score: res.total, date: platform.todayUTC(), me: true });
+        save.leaderboardLocal.push({ name: platform.displayName, score: res.total, date: platform.todayUTC(), me: true });
         persist();
         toast('Offline — score kept on the casual local board.');
       }
@@ -905,8 +920,24 @@ async function boot() {
   showScreen('title');
   startGamepadLoop();
   await platform.init();
+  if (platform.hosted) {
+    // Remote save wins over the local cache; the account nickname replaces
+    // the guest label; sync status keeps the top bar honest.
+    platform.onSync(renderStatus);
+    platform.fetchProfile().then(() => { refreshTitle(); renderStatus(); }).catch(() => {});
+    platform.loadCloudSave().then((remoteJson) => {
+      const remote = remoteJson ? parseSave(remoteJson) : null;
+      if (remote) {
+        save = remote;
+        persist(); // local cache mirrors the remote doc
+        applySettings();
+        refreshTitle();
+      }
+      renderStatus();
+    }).catch(() => {});
+  }
   refreshTitle();
-  $('topbar-status').textContent = platform.online ? 'Connected to host' : 'Offline mode — fully playable';
+  renderStatus();
   // Shared challenge seed via URL (?seed=YYYY-MM-DD).
   const seedParam = new URLSearchParams(location.search).get('seed');
   if (seedParam && /^\d{4}-\d{2}-\d{2}$/.test(seedParam)) {

@@ -29,7 +29,7 @@ This document describes Discovery Merge as it ships today. Present tense through
 | `src/render.js` | `BoardRenderer`: board, item meshes, diorama props, particles, camera, quality tiers |
 | `src/ui.js` | `DomBoard` (2D board + a11y mirror), `PlayController` (pointer, drag, keys, tutorial gating), modal/toast/announce |
 | `src/audio.js` | `AudioEngine`: three buses, sample one-shots with synth fallbacks, seeded music and ambience |
-| `src/platform.js` | `/api` adapter: server time, daily board, presence, activity, telemetry; offline fallbacks |
+| `src/platform.js` | `/api` adapter: fragment launch token + Bearer + 45-min refresh, server time, daily board (its-backend), profile nickname, cloud-save slot (zip+base64, debounced); offline fallbacks |
 | `src/persist.js` | Checksummed save, board snapshot, guest id, `ACHIEVEMENTS`, `DEFAULT_SETTINGS` |
 | `server.js` | Authoritative script declared in `starhermit.txt`: replay-validated daily board |
 | `sfx/` | 15 Opus clips, `manifest.txt` (canonical), `manifest.json` (generator input), `manifest.md` |
@@ -230,10 +230,11 @@ Per https://wiki.starhermit.com/ conventions the distribution root carries `star
 Used:
 - **Authoritative game script** (`server.js`): `GET /api/v1/time`, `GET/POST /api/v1/leaderboard/daily`, `POST /api/v1/presence`, `/activity/start|end`, `/telemetry`. Daily submissions must be for the current UTC day, carry matching rules/content versions and the daily seed, replay to a win through the real engine, and match the claimed total and final hash exactly; elapsed seconds are server-derived. Board rows persist in `data/leaderboard.json`.
 - **Server time** for daily boundaries with round-trip offset (`Platform.syncTime`).
-- **Launch token**: read from `?token=`, sent as a Bearer header, stripped from the URL, never stored.
-- **Presence heartbeat** every 45 s during play; **activity start/end** per round; **telemetry** limited to `start`, `tutorial-step`, `round-end`, `retry`, `settings-change`, `error` with mode and level id only.
+- **Launch token**: read from the URL fragment `#game_token=<jwt>` (optional `&session_id=`, stripped after the read; `?token=` kept for local dev), decoded for `sub` + `game_scope` (never hard-coded), sent as a Bearer header on every call, re-minted every 45 min via `POST /api/v1/games/{slug}/launch-token` (60 s retry), never stored. The old `<uuid>.starhermit.com` force-offline is gone — hosted mode activates whenever a token exists.
+- **Identity**: hosted display name is the profile nickname from `GET /api/v1/users/{sub}/profile` (never usernames, never `/api/v1/me`; `Player <id8>` fallback), shown in the Curator Profile line and on daily submissions/board rows; the top bar shows "Playing as <nickname> · sync status". **Cloud save**: the checksummed save document mirrors to one zip+base64 slot at `GET/PUT /api/v1/me/cloud-saves/{slug}` — remote wins on boot (validated by `parseSave`), saves debounce 2 s and flush on `pagehide`/hidden with keepalive.
+- **Presence heartbeat / activity / telemetry**: own-server sinks exist for local dev only — hosted mode stays silent (no launch-token endpoints, wiki).
 
-Not used: platform identity/profile (a local `guest-…` id is the board name), cloud saves, platform achievements (achievements are local), friends filtering, realtime sessions, rooms, chat, voice. On a static `<uuid>.starhermit.com` host every API call short-circuits to the offline path.
+Not used: platform achievements (local), friends filtering, realtime sessions, rooms, chat, voice. Standalone keeps the local `guest-…` id as the board name.
 
 ## 13. Technical architecture
 
@@ -286,7 +287,7 @@ QA bar as checkable statements: a new player is taught by Learn lessons or by th
 ## Design intent not yet implemented
 
 - Nine-locale string table with runtime language selection (host preference → `navigator.language` → en-US) and per-locale number/time formatting.
-- Platform identity and profile name on the daily board; cloud save of the checksummed save document; platform achievement unlocks mirroring the six local ones.
+- Friends filter on the daily board; platform achievement unlocks mirroring the six local ones (identity, board names and cloud save are done).
 - Enumerating both merge directions in `legalActions` so hints can free the more useful cell.
 - Distinct "speed" rules for Brisk Catalog (tighter par, visible countdown) and a real left-handed tray order.
 - Haptic pulses on merge and request completion where `navigator.vibrate` exists, gated by the existing Haptics setting.

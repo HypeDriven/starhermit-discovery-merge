@@ -78,13 +78,42 @@ export function storeSave(save) {
   try {
     const body = { ...save, version: SAVE_VERSION };
     const checksum = hashState(body);
-    localStorage.setItem(KEY, JSON.stringify({ ...body, checksum }));
+    const doc = { ...body, checksum };
+    localStorage.setItem(KEY, JSON.stringify(doc));
+    if (cloudHook) {
+      try { cloudHook(JSON.stringify(doc)); } catch { /* mirror errors never break saves */ }
+    }
     return true;
   } catch (e) {
     console.warn('Save store failed:', e);
     return false;
   }
 }
+
+// Validates a save document (local cache or cloud slot); null on bad shape,
+// version or checksum. Remote-preferred cloud loads go through here.
+export function parseSave(json) {
+  try {
+    const doc = typeof json === 'string' ? JSON.parse(json) : json;
+    if (!doc || typeof doc !== 'object') return null;
+    const { checksum, ...body } = doc;
+    if (hashState(body) !== checksum) return null;
+    if (doc.version > SAVE_VERSION) return null;
+    const base = freshSave();
+    return {
+      ...base, ...body, version: SAVE_VERSION,
+      settings: { ...base.settings, ...(body.settings || {}) },
+      journey: { ...base.journey, ...(body.journey || {}) },
+      stats: { ...base.stats, ...(body.stats || {}) },
+    };
+  } catch {
+    return null;
+  }
+}
+
+// The platform adapter registers here to mirror saves to the cloud slot.
+let cloudHook = null;
+export function setCloudHook(fn) { cloudHook = fn; }
 
 export function storeSnapshot(json) {
   try { localStorage.setItem(SNAPSHOT_KEY, json); } catch { /* quota */ }
