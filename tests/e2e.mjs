@@ -246,7 +246,7 @@ async function runPass(browser, vp) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() !== 'error') return;
+    if (m.type() !== 'error' && m.type() !== 'warning') return;
     // The platform adapter polls same-origin /api routes (time, presence,
     // activity, telemetry); with no backend those 404 by design (the game
     // runs in its supported offline mode). Ignore exactly those.
@@ -268,6 +268,46 @@ async function runPass(browser, vp) {
       const err = await page.evaluate(() => document.body.dataset.bootError || null);
       if (err) throw new Error('boot error: ' + err);
       await page.screenshot({ path: SHOT('title', vp.name) });
+    });
+
+    await step('settings → Graphics: presets, override, persistence across reload', async () => {
+      const gfxPreset = () => page.evaluate(() => document.body.dataset.gfxPreset);
+      // Headless Chrome runs on a software GPU, so Auto resolves to Low.
+      if ((await gfxPreset()) !== 'low') throw new Error('Auto should resolve to low on a software GPU, got ' + await gfxPreset());
+      await page.click('#btn-settings');
+      await page.waitForSelector('#settings-graphics #gfx-preset');
+      const autoLabel = await page.locator('#gfx-preset option[value="auto"]').textContent();
+      if (!/Auto \(detected: Low\)/.test(autoLabel)) throw new Error('unexpected Auto label: ' + autoLabel);
+      await page.selectOption('#gfx-preset', 'low');
+      if ((await gfxPreset()) !== 'low') throw new Error('Low preset not applied');
+      await page.selectOption('#gfx-preset', 'high');
+      if ((await gfxPreset()) !== 'high') throw new Error('High preset not applied');
+      if (!/From preset \(On\)/.test(await page.locator('#gfx-bloom option[value=""]').textContent())) {
+        throw new Error('bloom "From preset" label does not follow the High preset');
+      }
+      if (!/Bloom/.test(await page.textContent('#gfx-summary'))) throw new Error('summary should list bloom at High');
+      await page.selectOption('#gfx-bloom', 'off');
+      if (/Bloom/.test(await page.textContent('#gfx-summary'))) throw new Error('bloom override not reflected in summary');
+      await page.locator('#gfx-show-fps').check();
+      await page.screenshot({ path: SHOT('graphics', vp.name) });
+      await page.getByRole('button', { name: 'Done' }).click();
+      await page.waitForSelector('#overlay-root .overlay', { state: 'detached' });
+
+      await page.reload({ waitUntil: 'load' });
+      await page.waitForFunction(() => document.body.dataset.boot === 'ok', null, { timeout: 15000 });
+      if ((await gfxPreset()) !== 'high') throw new Error('High preset did not survive reload');
+      await page.click('#btn-settings');
+      await page.waitForSelector('#gfx-preset');
+      if ((await page.inputValue('#gfx-preset')) !== 'high') throw new Error('preset select not restored');
+      if ((await page.inputValue('#gfx-bloom')) !== 'off') throw new Error('bloom override not restored');
+      if (!(await page.locator('#gfx-show-fps').isChecked())) throw new Error('show-fps not restored');
+      // Choosing a preset clears overrides; go back to Auto for the rest of the run.
+      await page.selectOption('#gfx-preset', 'auto');
+      if ((await page.inputValue('#gfx-bloom')) !== '') throw new Error('choosing a preset did not clear overrides');
+      await page.locator('#gfx-show-fps').uncheck();
+      if ((await gfxPreset()) !== 'low') throw new Error('Auto not re-applied');
+      await page.getByRole('button', { name: 'Done' }).click();
+      await page.waitForSelector('#overlay-root .overlay', { state: 'detached' });
     });
 
     await step('settings: enable 2D board + reduced motion, close', async () => {

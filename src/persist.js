@@ -20,7 +20,8 @@ export const DEFAULT_SETTINGS = {
   largeText: false,
   leftHanded: false,
   domBoard: false, // force the semantic 2D board instead of WebGL
-  quality: 'auto', // auto | low | medium | high
+  // graphics: { preset, render_scale, adaptive, show_fps, <category> } — see gfx.js;
+  // absent until first applied so a legacy `quality` value can migrate.
   cameraTilt: 'default',
   haptics: true,
   hintsEnabled: true,

@@ -241,6 +241,27 @@ button.back { margin-top: 1rem; }
 .settings-grid select { font: inherit; background: var(--panel-2); color: var(--ink); border: 1px solid #4a3d2f; border-radius: 8px; padding: 0.3rem; min-height: 38px; }
 .settings-group { border: 1px solid #3a2f24; border-radius: var(--radius); padding: 0.8rem 1rem; }
 .settings-group h3 { margin: 0 0 0.6rem; font-size: 1rem; color: var(--accent); }
+.settings-group > label + label, .gfx-controls + label { margin-top: 0.55rem; }
+
+/* Graphics section */
+.gfx-controls { display: grid; gap: 0.5rem; margin-bottom: 0.55rem; }
+.gfx-controls .gfx-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
+.gfx-controls .gfx-row > span:first-child { flex: 1 1 8rem; min-width: 0; }
+.gfx-controls select { max-width: 100%; min-width: 9.5rem; }
+.gfx-inline { display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+.settings-grid .gfx-inline input[type="range"] { width: clamp(7rem, 34vw, 12rem); }
+.gfx-scale-value { min-width: 3.2rem; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-dim); }
+.gfx-controls input[type="checkbox"] { width: 1.3rem; height: 1.3rem; accent-color: var(--accent); }
+.gfx-summary { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--ink-dim); overflow-wrap: anywhere; }
+.gfx-note { margin: 0; font-size: 0.85rem; color: var(--danger); }
+
+/* Frame-rate readout: bottom-left, never over HUD controls. */
+#fps-meter {
+  position: fixed; left: calc(0.5rem + var(--safe-left)); bottom: calc(4.2rem + var(--safe-bottom)); z-index: 30;
+  pointer-events: none; font: 12px/1.2 ui-monospace, Menlo, Consolas, monospace;
+  background: rgba(20, 16, 12, 0.72); color: var(--ink); padding: 0.2rem 0.45rem; border-radius: 6px;
+}
+#fps-meter[hidden] { display: none; }
 
 /* results */
 .results-breakdown { display: grid; gap: 0.3rem; max-width: 24rem; margin: 1rem 0; }

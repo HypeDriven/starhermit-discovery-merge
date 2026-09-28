@@ -6,6 +6,8 @@ import { GameSession } from './session.js';
 import { BoardRenderer } from './render.js';
 import { DomBoard, PlayController, el, announce, toast, openModal } from './ui.js';
 import { AudioEngine } from './audio.js';
+import { graphicsControls, resolvedPreset } from './gfx-panel.js';
+import { fromLegacyQuality } from './gfx.js';
 import { Platform } from './platform.js?v=production-qa-2';
 import {
   loadSave, storeSave, storeSnapshot, loadSnapshot, clearSnapshot, parseSave,
@@ -62,7 +64,11 @@ function applySettings() {
   document.documentElement.classList.toggle('large-text', !!s.largeText);
   document.body.classList.toggle('colorblind', !!s.colorBlind);
   audio.applyVolumes();
-  current?.renderer?.applyQuality(s.quality || 'auto');
+  // Graphics: migrate the old single quality tier, then apply live.
+  if (!s.graphics || typeof s.graphics !== 'object') { s.graphics = fromLegacyQuality(s.quality); delete s.quality; }
+  document.body.dataset.gfxPreset = resolvedPreset(s.graphics);
+  document.body.dataset.gfxAuto = s.graphics.preset && s.graphics.preset !== 'auto' ? '0' : '1';
+  current?.renderer?.setGraphics(s.graphics);
   if (current) updateBoardVisibility();
 }
 
@@ -794,17 +800,18 @@ function openSettings() {
     return el('label', {}, label, input);
   };
 
+  const gfx = graphicsControls({
+    get: () => s.graphics || {},
+    set: (next) => { s.graphics = next; persist(); applySettings(); platform.track('settings-change'); },
+    renderer: () => current?.renderer || null,
+  });
+
   wrap.append(
     el('div', { class: 'settings-group' }, el('h3', {}, 'Audio'),
       slider('Music volume', 'music'), slider('Effects volume', 'effects'), slider('Ambience volume', 'ambience'),
       toggle('Mute all', 'muted')),
-    el('div', { class: 'settings-group' }, el('h3', {}, 'Graphics'),
-      (() => {
-        const sel = el('select', { 'aria-label': 'Graphics quality' },
-          ...['auto', 'low', 'medium', 'high'].map((q) => el('option', { value: q, selected: s.quality === q }, q)));
-        sel.onchange = () => { s.quality = sel.value; persist(); applySettings(); };
-        return el('label', {}, 'Quality tier', sel);
-      })(),
+    el('div', { class: 'settings-group', id: 'settings-graphics', 'data-section': 'graphics' }, el('h3', {}, gfx.title),
+      gfx.el,
       toggle('Reduced motion', 'reducedMotion'),
       toggle('High contrast', 'highContrast')),
     el('div', { class: 'settings-group' }, el('h3', {}, 'Controls'),
