@@ -296,3 +296,7 @@ QA bar as checkable statements: a new player is taught by Learn lessons or by th
 - Enumerating both merge directions in `legalActions` so hints can free the more useful cell.
 - Distinct "speed" rules for Brisk Catalog (tighter par, visible countdown) and a real left-handed tray order.
 - Haptic pulses on merge and request completion where `navigator.vibrate` exists, gated by the existing Haptics setting.
+
+## Browser interference
+
+`browser-guard.js` (loaded from `index.html`) suppresses browser UI that gets in the way of play: the right-click context menu, the iOS long-press callout, copy / cut / paste, and page text selection. Text fields (inputs, textareas, selects, contenteditable) keep normal selection, context menu and clipboard behaviour.
