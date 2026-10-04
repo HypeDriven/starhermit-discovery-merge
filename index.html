@@ -45,6 +45,10 @@
           <strong>Curator Profile</strong><span id="profile-sub">Guest</span>
         </button>
       </div>
+      <div id="title-platform" class="title-platform" hidden>
+        <button id="btn-signin" class="card-btn" hidden><strong id="btn-signin-label">Sign in with StarHermit</strong></button>
+        <button id="btn-invite" class="card-btn" hidden><strong id="btn-invite-label">Invite a friend</strong></button>
+      </div>
       <p id="resume-note" class="resume-note" hidden>
         <button id="btn-resume" class="primary">Resume paused board</button>
       </p>
@@ -132,6 +136,7 @@
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }
 </script>
+<script src="starhermit-sdk.js"></script>
 <script type="module" src="src/main.js?v=production-qa-2"></script>
 </body>
 </html>

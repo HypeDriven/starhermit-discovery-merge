@@ -8,7 +8,7 @@ Combine identical objects to unlock a branching discovery chain and restore them
 node server.js          # serves the game + API on http://localhost:8080
 ```
 
-Or serve the directory with any static file server — the game is fully playable offline (leaderboard/time-sync features degrade gracefully to local fallbacks).
+Or serve the directory with any static file server — the game is fully playable standalone and makes no `/api` calls without a StarHermit launch token (the daily board is local to the device).
 
 ## Test
 
@@ -30,5 +30,5 @@ A headless QA hook is available at `?selftest=1` (plays a scripted practice roun
 - `src/audio.js` — synthesized WebAudio buses (music/effects/ambience)
 - `src/platform.js` — same-origin `/api` adapter with offline fallbacks
 - `src/persist.js` — versioned, checksummed local saves
-- `server.js` — authoritative script: static hosting, server time, replay-validated daily leaderboard
+- `server.js` — dev script: static hosting, server time (read by the client only when signed in); its replay-validated daily board routes are unused by the client
 - `starhermit.txt` — distribution manifest (`name`, `launch=index.html`, `server=server.js`)

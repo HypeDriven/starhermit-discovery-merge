@@ -4,9 +4,9 @@
 
 import { GameSession } from './session.js';
 import { BoardRenderer } from './render.js';
-import { DomBoard, PlayController, el, announce, toast, openModal } from './ui.js';
+import { DomBoard, PlayController, el, announce, toast, openModal, DEFAULT_KEYS, setKeyBindings, keyLabel } from './ui.js';
 import { AudioEngine } from './audio.js';
-import { graphicsControls, resolvedPreset } from './gfx-panel.js';
+import { graphicsControls, resolvedPreset, gfxLocale } from './gfx-panel.js';
 import { fromLegacyQuality } from './gfx.js';
 import { Platform } from './platform.js?v=production-qa-2';
 import {
@@ -37,18 +37,34 @@ let dailyTimer = null;
 function persist() { storeSave(save); }
 
 // Top-bar status: hosted shows the account nickname + cloud sync state.
+// StarHermit strings (status, sign-in, invite, toasts) in the nine locales.
+const PT = {
+  'en-US': { offline: 'Offline — progress is stored on this device.', playing: 'Playing as {name}', synced: 'progress synced', saving: 'saving…', nosync: 'cloud sync unavailable', signIn: 'Sign in with StarHermit', invite: 'Invite a friend', copied: 'Invite link copied to the clipboard.', copyFail: 'Could not copy — invite link: {link}' },
+  'en-GB': { offline: 'Offline — progress is stored on this device.', playing: 'Playing as {name}', synced: 'progress synced', saving: 'saving…', nosync: 'cloud sync unavailable', signIn: 'Sign in with StarHermit', invite: 'Invite a friend', copied: 'Invite link copied to the clipboard.', copyFail: 'Could not copy — invite link: {link}' },
+  'es-419': { offline: 'Sin conexión: el progreso se guarda en este dispositivo.', playing: 'Jugando como {name}', synced: 'progreso sincronizado', saving: 'guardando…', nosync: 'sincronización en la nube no disponible', signIn: 'Iniciar sesión con StarHermit', invite: 'Invitar a un amigo', copied: 'Enlace de invitación copiado al portapapeles.', copyFail: 'No se pudo copiar. Enlace de invitación: {link}' },
+  'es-ES': { offline: 'Sin conexión: el progreso se guarda en este dispositivo.', playing: 'Jugando como {name}', synced: 'progreso sincronizado', saving: 'guardando…', nosync: 'sincronización en la nube no disponible', signIn: 'Iniciar sesión con StarHermit', invite: 'Invitar a un amigo', copied: 'Enlace de invitación copiado al portapapeles.', copyFail: 'No se ha podido copiar. Enlace de invitación: {link}' },
+  'de-DE': { offline: 'Offline – der Fortschritt wird auf diesem Gerät gespeichert.', playing: 'Du spielst als {name}', synced: 'Fortschritt synchronisiert', saving: 'wird gespeichert…', nosync: 'Cloud-Synchronisierung nicht verfügbar', signIn: 'Mit StarHermit anmelden', invite: 'Freund einladen', copied: 'Einladungslink in die Zwischenablage kopiert.', copyFail: 'Kopieren fehlgeschlagen – Einladungslink: {link}' },
+  'fr-FR': { offline: 'Hors ligne : la progression est enregistrée sur cet appareil.', playing: 'Vous jouez en tant que {name}', synced: 'progression synchronisée', saving: 'enregistrement…', nosync: 'synchronisation cloud indisponible', signIn: 'Se connecter avec StarHermit', invite: 'Inviter un ami', copied: 'Lien d’invitation copié dans le presse-papiers.', copyFail: 'Copie impossible — lien d’invitation : {link}' },
+  'fr-CA': { offline: 'Hors ligne : la progression est enregistrée sur cet appareil.', playing: 'Vous jouez en tant que {name}', synced: 'progression synchronisée', saving: 'enregistrement…', nosync: 'synchronisation infonuagique non disponible', signIn: 'Se connecter avec StarHermit', invite: 'Inviter un ami', copied: 'Lien d’invitation copié dans le presse-papiers.', copyFail: 'Copie impossible — lien d’invitation : {link}' },
+  'pt-BR': { offline: 'Offline — o progresso fica salvo neste dispositivo.', playing: 'Jogando como {name}', synced: 'progresso sincronizado', saving: 'salvando…', nosync: 'sincronização na nuvem indisponível', signIn: 'Entrar com StarHermit', invite: 'Convidar um amigo', copied: 'Link de convite copiado para a área de transferência.', copyFail: 'Não foi possível copiar — link de convite: {link}' },
+  'it-IT': { offline: 'Offline: i progressi sono salvati su questo dispositivo.', playing: 'Giochi come {name}', synced: 'progressi sincronizzati', saving: 'salvataggio…', nosync: 'sincronizzazione cloud non disponibile', signIn: 'Accedi con StarHermit', invite: 'Invita un amico', copied: 'Link di invito copiato negli appunti.', copyFail: 'Impossibile copiare. Link di invito: {link}' }
+};
+const P_STR = PT[gfxLocale(navigator.language)] || PT['en-US'];
+
 function renderStatus() {
   const el = document.getElementById('topbar-status');
+  const canSign = platform.canSignIn(), canInvite = platform.hosted && !!platform.inviteLink();
+  $('btn-signin').hidden = !canSign;
+  $('btn-invite').hidden = !canInvite;
+  $('title-platform').hidden = !canSign && !canInvite;
   if (!el) return;
   if (platform.hosted) {
     const name = platform.profile ? platform.profile.name : '…';
-    el.textContent = 'Playing as ' + name + ' · ' +
-      (platform.sync === 'synced' ? 'progress synced'
-        : platform.sync === 'saving' ? 'saving…'
-        : 'cloud sync pending');
+    el.textContent = P_STR.playing.replace('{name}', name) + ' · ' +
+      (platform.sync === 'synced' ? P_STR.synced : platform.sync === 'saving' ? P_STR.saving : P_STR.nosync);
     return;
   }
-  el.textContent = platform.online ? 'Connected to host' : 'Offline mode — fully playable';
+  el.textContent = 'Local play — fully playable';
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +292,6 @@ function teardownCurrent() {
   current.renderer?.dispose();
   clearInterval(snapshotTimer);
   clearInterval(current.hudTimer);
-  platform.stopPresence();
   current = null;
 }
 
@@ -343,10 +358,6 @@ async function startLevel(level, mode, journeyIndex = null) {
   $('btn-undo').hidden = $('btn-undo-m').hidden = !session.canUndo() && !(mode === 'practice' || mode === 'learn');
   $('btn-camera').hidden = !renderer;
   wirePlayButtons();
-
-  platform.track('start', { mode, level: level.id });
-  platform.activityStart(level.id);
-  platform.startPresence();
 
   // Countdown (skipped under reduced motion).
   await countdown();
@@ -496,8 +507,6 @@ function openPause() {
       { label: 'Settings', onClick: () => openSettings() },
       { label: 'Help', onClick: () => openHelp() },
       { label: 'Leave round', onClick: () => {
-        platform.activityEnd(current.level.id, 'abandoned');
-        platform.track('round-end', { mode: current.mode, level: current.level.id });
         teardownCurrent();
         showScreen('title');
         refreshTitle();
@@ -553,7 +562,6 @@ function finishLevel(lessonFinished = false) {
   session.pause();
   clearInterval(snapshotTimer);
   clearSnapshot();
-  platform.stopPresence();
 
   const res = session.results();
   if (lessonFinished && mode === 'learn') { res.status = 'won'; res.terminalReason = 'lesson-complete'; }
@@ -590,22 +598,19 @@ function finishLevel(lessonFinished = false) {
   // Achievements.
   const unlocked = checkAchievements(session, won, journeyIndex);
 
-  // Score submission.
+  // Daily board (local to this device).
   if (won && mode === 'daily' && save.dailies[platform.todayUTC()]) {
-    const envelope = session.replayEnvelope();
-    platform.submitDaily({ date: platform.todayUTC(), envelope, name: platform.displayName }).then((r) => {
-      if (r.ok) toast(`Daily score submitted (rank #${r.rank ?? '—'})`);
-      else {
-        // Casual fallback: local board only.
-        save.leaderboardLocal.push({ name: platform.displayName, score: res.total, date: platform.todayUTC(), me: true });
-        persist();
-        toast('Offline — score kept on the casual local board.');
-      }
+    const date = platform.todayUTC();
+    save.leaderboardLocal.push({
+      name: platform.displayName, score: res.total, moves: res.movesUsed,
+      seconds: res.elapsedSeconds, date, me: true,
     });
+    // Keep the last 14 days.
+    const days = [...new Set(save.leaderboardLocal.map((e) => e.date))].sort().slice(-14);
+    save.leaderboardLocal = save.leaderboardLocal.filter((e) => days.includes(e.date));
+    persist();
+    toast('Daily score saved to this device’s board.');
   }
-
-  platform.activityEnd(level.id, res.status);
-  platform.track('round-end', { mode, level: level.id });
 
   showResults(res, unlocked, won);
 }
@@ -683,7 +688,6 @@ function showResults(res, unlocked, won) {
   }
   $('btn-retry').onclick = () => startLevel(level, mode, journeyIndex);
   $('btn-results-home').onclick = () => { teardownCurrent(); refreshTitle(); showScreen('title'); };
-  platform.track(won ? 'round-end' : 'retry', { mode, level: level.id });
   showScreen('results');
 }
 
@@ -696,27 +700,20 @@ async function openScores() {
   body.innerHTML = '';
   body.append(el('h3', {}, 'Score Chase'));
   const date = platform.todayUTC();
-  body.append(el('p', { class: 'screen-sub' }, `Daily board for ${date}. Submissions are replay-validated when online; offline scores are marked casual.`));
+  body.append(el('p', { class: 'screen-sub' }, `Daily board for ${date} — scores from this device.`));
 
   const table = el('table', { class: 'board-table' });
   table.append(el('tr', {}, el('th', {}, '#'), el('th', {}, 'Player'), el('th', {}, 'Score'), el('th', {}, 'Moves'), el('th', {}, 'Time')));
   body.append(table);
   showScreen('setup');
 
-  const remote = await platform.fetchDailyBoard(date);
-  const local = save.leaderboardLocal.filter((e) => e.date === date);
-  const entries = remote && remote.length ? remote : local;
-  if (!entries.length) {
-    body.append(el('p', {}, remote === null
-      ? 'Offline — no local entries yet. Finish today’s cabinet to post one.'
-      : 'No entries yet — be the first to restore today’s cabinet.'));
-  }
+  const entries = save.leaderboardLocal.filter((e) => e.date === date).sort((a, b) => b.score - a.score);
+  if (!entries.length) body.append(el('p', {}, 'No entries yet. Finish today’s cabinet to post one.'));
   entries.slice(0, 25).forEach((e2, i) => {
-    table.append(el('tr', { class: e2.me || e2.name === platform.id || e2.name === platform.id.slice(0, 24) ? 'me' : '' },
+    table.append(el('tr', { class: e2.me ? 'me' : '' },
       el('td', {}, String(i + 1)), el('td', {}, e2.name), el('td', {}, String(e2.score)),
       el('td', {}, String(e2.moves ?? '—')), el('td', {}, e2.seconds != null ? fmtTime(e2.seconds) : '—')));
   });
-  if (!remote) body.append(el('p', { class: 'screen-sub' }, 'Casual board (offline, not validated).'));
 
   // Shareable challenge seed.
   const shareBtn = el('button', { class: 'ghost' }, 'Copy today’s challenge seed link');
@@ -759,7 +756,7 @@ function openHelp() {
     ['Deliver requests', 'Select a piece a request needs, then press its Deliver button — or drag the piece onto the request card. Complete every request to finish.'],
     ['Cobwebs', 'Webbed pieces cannot move or be delivered. Merge a matching piece onto one to clear the web.'],
     ['Crates', 'Crates block cells permanently. Work around them.'],
-    ['Keyboard', 'Arrow keys move between cells · Enter/Space select & confirm · Esc cancel or pause · U undo (practice) · H hint · C reset camera.'],
+    ['Keyboard', `${['up', 'down', 'left', 'right'].map(keyLabel).join('/')} move between cells · Enter/Space select & confirm · ${keyLabel('cancel')} cancel or pause · ${keyLabel('undo')} undo (practice) · ${keyLabel('hint')} hint · ${keyLabel('camera')} reset camera.`],
     ['Gamepad', 'D-pad or left stick moves focus, A confirms, B cancels, Start pauses.'],
   ];
   for (const [h, t] of cards) {
@@ -787,6 +784,7 @@ function openProfile() {
 function openSettings() {
   const s = save.settings;
   const wrap = el('div', { class: 'settings-grid' });
+  wrap.addEventListener('change', pushSettings); // platform settings KV mirror
 
   const slider = (label, key) => {
     const input = el('input', { type: 'range', min: 0, max: 1, step: 0.05, value: s[key], 'aria-label': label });
@@ -796,13 +794,13 @@ function openSettings() {
   const toggle = (label, key) => {
     const input = el('input', { type: 'checkbox', 'aria-label': label });
     input.checked = !!s[key];
-    input.onchange = () => { s[key] = input.checked; persist(); applySettings(); platform.track('settings-change'); };
+    input.onchange = () => { s[key] = input.checked; persist(); applySettings(); };
     return el('label', {}, label, input);
   };
 
   const gfx = graphicsControls({
     get: () => s.graphics || {},
-    set: (next) => { s.graphics = next; persist(); applySettings(); platform.track('settings-change'); },
+    set: (next) => { s.graphics = next; persist(); applySettings(); pushSettings(); },
     renderer: () => current?.renderer || null,
   });
 
@@ -911,7 +909,6 @@ function wireLifecycle() {
   });
 
   window.addEventListener('error', (e) => {
-    platform.track('error', { level: current?.level?.id });
     console.error(e.error || e.message);
   });
 }
@@ -919,6 +916,36 @@ function wireLifecycle() {
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
+
+let platformSettingsReady = false;
+// Preferences mirrored to the platform settings KV.
+function pushSettings() {
+  if (platform.hosted && platformSettingsReady) platform.patchSettings({ ...save.settings });
+}
+function syncFromPlatform() {
+  if (!platform.hosted) return;
+  platform.fetchProfile().then(() => { refreshTitle(); renderStatus(); }).catch(() => {});
+  platformSettingsReady = false;
+  platform.loadCloudSave().then((remoteJson) => {
+    const remote = remoteJson ? parseSave(remoteJson) : null;
+    if (remote) {
+      save = remote;
+      persist(); // local cache mirrors the remote doc
+      applySettings();
+      refreshTitle();
+    }
+    renderStatus();
+  }).catch(() => {}).then(() => platform.getSettings()).then((remote) => {
+    platformSettingsReady = true;
+    let changed = false;
+    for (const [k, v] of Object.entries(remote || {})) {
+      if (!(k in save.settings) || v == null || typeof v !== typeof save.settings[k]) continue;
+      save.settings[k] = v; changed = true;
+    }
+    if (changed) { persist(); applySettings(); }
+  }, () => { platformSettingsReady = true; });
+  platform.loadBindings(DEFAULT_KEYS).then(setKeyBindings).catch(() => {});
+}
 
 async function boot() {
   applySettings();
@@ -928,22 +955,20 @@ async function boot() {
   showScreen('title');
   startGamepadLoop();
   await platform.init();
-  if (platform.hosted) {
-    // Remote save wins over the local cache; the account nickname replaces
-    // the guest label; sync status keeps the top bar honest.
-    platform.onSync(renderStatus);
-    platform.fetchProfile().then(() => { refreshTitle(); renderStatus(); }).catch(() => {});
-    platform.loadCloudSave().then((remoteJson) => {
-      const remote = remoteJson ? parseSave(remoteJson) : null;
-      if (remote) {
-        save = remote;
-        persist(); // local cache mirrors the remote doc
-        applySettings();
-        refreshTitle();
-      }
-      renderStatus();
-    }).catch(() => {});
-  }
+  // Signed in: remote save, platform settings and key bindings win; the
+  // account nickname replaces the guest label.
+  platform.onSync(renderStatus);
+  platform.onAuth(() => { refreshTitle(); renderStatus(); syncFromPlatform(); });
+  $('btn-signin-label').textContent = P_STR.signIn;
+  $('btn-invite-label').textContent = P_STR.invite;
+  $('btn-signin').addEventListener('click', () => platform.signIn());
+  $('btn-invite').addEventListener('click', () => {
+    const link = platform.inviteLink();
+    if (!link) return;
+    const fail = () => toast(P_STR.copyFail.replace('{link}', link));
+    try { navigator.clipboard.writeText(link).then(() => toast(P_STR.copied), fail); } catch { fail(); }
+  });
+  syncFromPlatform();
   refreshTitle();
   renderStatus();
   // Shared challenge seed via URL (?seed=YYYY-MM-DD).

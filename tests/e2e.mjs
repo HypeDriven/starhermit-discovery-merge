@@ -8,9 +8,9 @@
 //   hint + pause/resume, until the results screen shows a win → back home.
 //
 // The game is fully playable offline; this test serves the repo with an
-// embedded static server (no /api backend), so the daily leaderboard runs in
-// its designed "casual local board" fallback. Ranked server validation is
-// covered separately by tests/e2e.smoke.mjs.
+// embedded static server (no /api backend). Standalone (no launch token) the
+// game must make zero same-origin /api or /ws requests — asserted per pass.
+// The signed-in pass stubs the platform API and GET /api/v1/time.
 //
 // Game state (cell aria-labels, request cards) is read only to decide the
 // next move; every action goes through page clicks on visible elements.
@@ -234,6 +234,70 @@ async function playUntilResults(page, isMobile, hooks) {
 // One full viewport pass
 // ---------------------------------------------------------------------------
 
+// StarHermit routes (the game's own /api/v1 time/leaderboard/presence sinks are separate).
+const PLATFORM_API = /^\/api\/v1\/(games|users|me|leaderboards|chat)\//;
+// Any own-server route: forbidden in a standalone load.
+const OWN_SERVER = /^\/(api|ws)(\/|$)/;
+
+// Signed-in pass: launch token in the fragment, platform API stubbed.
+async function platformPass(browser, vp) {
+  const isMobile = vp.name === 'mobile';
+  const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, hasTouch: isMobile, isMobile });
+  const page = await context.newPage();
+  const errors = [], seen = [];
+  const tag = 'platform-' + vp.name;
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() !== 'error' && m.type() !== 'warning') return;
+    const url = m.location()?.url || '';
+    if (!browserNoise.test(m.text())) errors.push(`console: ${m.text()} (${url})`);
+  });
+  await page.route((url) => url.pathname === '/api/v1/time', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ now: Date.now() }) }));
+  const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const jwt = `${b64u({ alg: 'none' })}.${b64u({ sub: 'u-e2e-0001', game_scope: 'discovery-merge', exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+  await page.route((url) => PLATFORM_API.test(url.pathname), (route) => {
+    const req = route.request(), u = new URL(req.url());
+    seen.push(req.method() + ' ' + u.pathname);
+    const json = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
+    if (u.pathname.endsWith('/profile')) return json({ nickname: 'Pip Tester' });
+    if (u.pathname.endsWith('/settings') && req.method() === 'GET') return json({ settings: { highContrast: true } });
+    if (u.pathname.endsWith('/controls')) return json({ actions: [{ action: 'hint', codes: ['KeyJ'] }] });
+    return route.fulfill({ status: 204 });
+  });
+  const click = (sel) => (isMobile ? page.tap(sel) : page.click(sel));
+  const step = async (name, fn) => { await fn(); console.log(`ok - [${tag}] ${name}`); };
+  try {
+    await step('signed in: nickname, save load, fragment stripped', async () => {
+      await page.goto(`http://127.0.0.1:${vp.port}/#game_token=${jwt}`);
+      await page.waitForFunction(() => document.body.dataset.boot === 'ok', null, { timeout: 15000 });
+      await page.waitForFunction(() => document.getElementById('profile-sub').textContent === 'Pip Tester', null, { timeout: 8000 });
+      if (await page.evaluate(() => location.hash)) throw new Error('launch fragment not stripped');
+      if (await page.locator('#btn-signin:visible').count()) throw new Error('sign-in shown while signed in');
+      if (!seen.includes('GET /api/v1/me/cloud-saves/' + encodeURIComponent('game:discovery-merge'))) throw new Error('no cloud load: ' + seen.join(', '));
+    });
+    await step('platform settings applied (high contrast)', async () => {
+      await page.waitForFunction(() => document.body.classList.contains('high-contrast'), null, { timeout: 5000 });
+    });
+    await step('invite a friend shows a confirmation toast', async () => {
+      await page.locator('#btn-invite').scrollIntoViewIfNeeded();
+      await click('#btn-invite');
+      await page.waitForSelector('#toast-root .toast', { timeout: 3000 });
+      const box = await page.locator('#toast-root .toast').first().boundingBox();
+      if (!box || box.x < 0 || box.x + box.width > vp.width + 1) throw new Error('toast off-screen ' + JSON.stringify(box));
+      await page.screenshot({ path: `/tmp/discovery-merge-e2e-platform-${vp.name}.png` });
+    });
+    await step('help lists the platform key binding', async () => {
+      await page.locator('#btn-help').scrollIntoViewIfNeeded();
+      await click('#btn-help');
+      await page.waitForFunction(() => /J hint/.test(document.getElementById('overlay-root').textContent), null, { timeout: 3000 });
+    });
+  } finally {
+    await context.close();
+  }
+  return errors;
+}
+
 async function runPass(browser, vp) {
   const isMobile = vp.name === 'mobile';
   const context = await browser.newContext({
@@ -244,14 +308,16 @@ async function runPass(browser, vp) {
   await context.addInitScript(() => localStorage.setItem('discovery-merge.guest.v1', 'guest-4294967295-4294967295'));
   const page = await context.newPage();
   const errors = [];
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+      if (OWN_SERVER.test(u.pathname)) errors.push('standalone made an own-server call: ' + r.url());
+    }
+  });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if (m.type() !== 'error' && m.type() !== 'warning') return;
-    // The platform adapter polls same-origin /api routes (time, presence,
-    // activity, telemetry); with no backend those 404 by design (the game
-    // runs in its supported offline mode). Ignore exactly those.
     const url = m.location()?.url || '';
-    if (m.text().startsWith('Failed to load resource') && url.includes('/api/')) return;
     if (!browserNoise.test(m.text())) errors.push(`console: ${m.text()} (${url})`);
   });
 
@@ -408,18 +474,25 @@ async function runPass(browser, vp) {
       await page.waitForSelector('#screen-title:not([hidden])');
       await page.screenshot({ path: SHOT('home-after-win', vp.name) });
     });
-    await step('daily board highlights the shortened guest display name', async () => {
-      await page.route('**/api/v1/leaderboard/daily?*', route => route.fulfill({
-        json: { entries: [
-          { name: 'another-player', score: 200 },
-          { name: 'guest-4294967295-4294967295'.slice(0, 24), score: 100 },
-        ] },
-      }));
+    await step('daily board (local) highlights only the current guest', async () => {
+      await page.evaluate(async () => {
+        const { hashState } = await import('/src/engine/rng.js');
+        const KEY = 'discovery-merge.save.v1';
+        const { checksum, ...body } = JSON.parse(localStorage.getItem(KEY));
+        const date = new Date().toISOString().slice(0, 10);
+        body.leaderboardLocal = [
+          { name: 'another-player', score: 200, date },
+          { name: 'Guest ·4294967295-4294967295', score: 100, date, me: true },
+        ];
+        localStorage.setItem(KEY, JSON.stringify({ ...body, checksum: hashState(body) }));
+      });
+      await page.reload();
+      await page.waitForSelector('#screen-title:not([hidden])');
       await page.click('#btn-play');
       await page.click('[data-mode="scores"]');
       await page.waitForSelector('.board-table tr.me');
       const highlighted = page.locator('.board-table tr.me');
-      if (await highlighted.count() !== 1 || !(await highlighted.textContent()).includes('guest-')) {
+      if (await highlighted.count() !== 1 || !(await highlighted.textContent()).includes('Guest')) {
         throw new Error('Daily board must highlight only the current guest');
       }
     });
@@ -451,7 +524,7 @@ try {
     { name: 'mobile', width: 390, height: 844, port: started.port },
   ];
   for (const vp of passes) {
-    const errs = await runPass(browser, vp);
+    const errs = [...await runPass(browser, vp), ...await platformPass(browser, vp)];
     allErrors.push(...errs.map((e) => `[${vp.name}] ${e}`));
     if (errs.length) {
       throw new Error(`page errors in ${vp.name} pass:\n` + errs.join('\n'));

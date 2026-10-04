@@ -9,11 +9,11 @@ This document describes Discovery Merge as it ships today. Present tense through
 | | |
 |---|---|
 | Genre | Solo merge/discovery puzzle with request goals |
-| Players | 1; asynchronous daily leaderboard |
+| Players | 1; per-device daily board |
 | Session length | Journey stage 1–4 min; Daily 5–10 min; Learn lesson under a minute |
 | Platforms | Desktop and mobile browsers (portrait and landscape); WebGL2/WebGL with a full 2D DOM fallback |
 | Rendering | Three.js r160 (vendored) tabletop diorama; semantic HTML for all menus, HUD, overlays and an always-present keyboard/screen-reader board mirror |
-| Backend | Optional `server.js` (Node ≥ 18, zero dependencies): static hosting plus same-origin `/api/v1/*`; fully playable offline |
+| Backend | Optional `server.js` (Node ≥ 18, zero dependencies): static hosting; the client reads only `GET /api/v1/time`, and only when signed in; fully playable standalone |
 
 ### File map
 
@@ -31,9 +31,9 @@ This document describes Discovery Merge as it ships today. Present tense through
 | `src/gfx-panel.js` | Settings → Graphics controls, GPU probe, localized panel strings (nine locales) |
 | `src/ui.js` | `DomBoard` (2D board + a11y mirror), `PlayController` (pointer, drag, keys, tutorial gating), modal/toast/announce |
 | `src/audio.js` | `AudioEngine`: three buses, sample one-shots with synth fallbacks, seeded music and ambience |
-| `src/platform.js` | `/api` adapter: fragment launch token + Bearer + 45-min refresh, server time, daily board (its-backend), profile nickname, cloud-save slot (zip+base64, debounced); offline fallbacks |
+| `src/platform.js` | `/api` adapter: fragment launch token + Bearer + 45-min refresh, server time (signed in only; none standalone), profile nickname, cloud-save slot (zip+base64, debounced); offline fallbacks |
 | `src/persist.js` | Checksummed save, board snapshot, guest id, `ACHIEVEMENTS`, `DEFAULT_SETTINGS` |
-| `server.js` | Authoritative script declared in `starhermit.txt`: replay-validated daily board |
+| `server.js` | Script declared in `starhermit.txt`: static hosting and `/api/v1/time` (its legacy daily board/presence/activity/telemetry routes are no longer called) |
 | `sfx/` | 15 Opus clips, `manifest.txt` (canonical), `manifest.json` (generator input), `manifest.md` |
 | `assets/` | `key-art.webp`, `cabinet-restored.webp`, `cabinet-locked.webp` |
 | `vendor/` | `three.module.js` (r160) and `addons/` (r160 postprocessing passes, shaders, `RoomEnvironment`, `RoundedBoxGeometry`) mapped by the `index.html` importmap |
@@ -132,11 +132,11 @@ Undo (`GameSession.undo`) pops a serialized pre-command state; allowed only when
 | Daily | `dailyLevel(date)`: one seed per UTC day from platform time | no | yes; first win submits | random theme |
 | Practice | easy / medium / hard (`PRACTICE_DIFFICULTIES`), fresh seed each time | yes | no | theme by hash of difficulty |
 | Challenge | Frugal Hands (move limit 1.3× minimum), Brisk Catalog (par-clock chase, observatory), Crowded Shelves (5×5, 6 crates, 3 cobweb pairs, ember) | no | flagged ranked; local only | fixed |
-| Score Chase | Today's daily board (server or casual local), copy a `?seed=YYYY-MM-DD` share link | — | — | — |
+| Score Chase | Today's daily board (this device), copy a `?seed=YYYY-MM-DD` share link | — | — | — |
 
 **Journey curve** (all from `journeyLevel`): board 5×5 for stages 1–8, 6×6 for 9–24, 7×7 for 25–40. Chains 1 (stages 1–6), 2 (7–14), 3 (15+), ordered per theme so each wing leads with a different chain. Crates from stage 6, rising to 6 by stage 33. Cobweb pairs from stage 7, up to 4 by stage 28. Request tiers 1–2 early, minimum tier 2 from stage 15, maximum tier 5 from stage 25 (mastery stages add +1 earlier). Two-need requests from stage 21, double counts from stage 29. Mastery stages get one extra request and `moveLimit = ceil(1.45 × minimum actions)`. Par seconds are always `ceil(3.2 × minimum actions)` where a tier-t piece costs `2^(t+1) − 1` actions plus one delivery (`minActionsForNeeds`).
 
-**Daily**: 6–7 cells square, 3 of the 4 chains, 2–4 crates, 1–3 cobweb pairs, 4 requests of 1–2 needs up to tier 3–4. Server time (`/api/v1/time`) decides the day; the setup screen counts down to the next seed. A day's first win is stored in `save.dailies[date]` and submitted; later wins update the local best only.
+**Daily**: 6–7 cells square, 3 of the 4 chains, 2–4 crates, 1–3 cobweb pairs, 4 requests of 1–2 needs up to tier 3–4. The UTC day comes from the local clock standalone, or from server time (`/api/v1/time`) when signed in; the setup screen counts down to the next seed. A day's first win is stored in `save.dailies[date]` and added to the local board; later wins update the local best only.
 
 **Unlocks**: journey stages unlock strictly in order; the diorama's eight pedestal props appear at `round(8 × completed/40)`. The Codex modal shows the highest tier ever created per chain (`save.codex`). Six achievements (`persist.js ACHIEVEMENTS`): First Restoration, Deep Discovery (tier-5 item), Web Clearer (10 cobwebs), Steady Hands (3 daily days), Mastery Archivist (all 5 mastery stages), Grand Curator (all 40).
 
@@ -164,7 +164,7 @@ Gamepad (`startGamepadLoop`): d-pad or left stick moves focus, A confirms, B can
 
 `boot → title ⇄ modes ⇄ {journey | setup} → play ⇄ pause modal → results → (title | next stage | retry)`. `showScreen()` in `main.js` hides all other sections, focuses the first heading or button and announces the screen name. Modals (`openModal`) trap Tab, close on Esc, and restore focus. Visibility change pauses the session and stores a snapshot; a "Resume paused board" button appears on the title while a snapshot exists.
 
-- **Title**: key art (`assets/key-art.webp`, falls back to emoji glyphs on load error), tagline, Play, three cards, resume note. Topbar: Help, Codex, Settings; status text shows "Connected to host" or "Offline mode — fully playable".
+- **Title**: key art (`assets/key-art.webp`, falls back to emoji glyphs on load error), tagline, Play, three cards, resume note. Topbar: Help, Codex, Settings; status text shows "Local play — fully playable" (signed out) or the nickname and sync state.
 - **Modes**: six cards with one-line rule summaries and ranked flags.
 - **Journey**: five theme groups of eight stage buttons; locked stages disabled with `aria-label` stating locked/mastery/best score.
 - **Setup**: level name, rules summary, estimated minutes, player count, seed, move limit, Ranked/Unranked badge, Start. Also hosts the Learn, Practice, Challenge lists and Score Chase table.
@@ -215,7 +215,7 @@ Everything is short, wooden, brass and glass — cabinet sounds, not arcade soun
 
 ## 10. Localization
 
-Required locales for this product family: en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT. **Today only en-US ships**, except the Settings → Graphics panel, whose strings exist in all nine locales and follow `navigator.language`. All strings are inline in `index.html`, `src/main.js`, `src/ui.js` (`INVALID_TEXT`) and `src/content.js` (chain, tier, level and lesson names); `<html lang="en">` is fixed and there is no language selector or locale detection. Layout allowances that already exist: cards wrap, the setup summary is capped at 70ch, buttons have `min-height:44px` and wrap, and the mobile topbar wraps its status line — enough for ~30% string expansion. See "Design intent not yet implemented".
+Required locales for this product family: en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT. **Today only en-US ships**, except the StarHermit strings (status line, sign-in, invite, toasts; table in `src/main.js`) and the Settings → Graphics panel, whose strings exist in all nine locales and follow `navigator.language`. All strings are inline in `index.html`, `src/main.js`, `src/ui.js` (`INVALID_TEXT`) and `src/content.js` (chain, tier, level and lesson names); `<html lang="en">` is fixed and there is no language selector or locale detection. Layout allowances that already exist: cards wrap, the setup summary is capped at 70ch, buttons have `min-height:44px` and wrap, and the mobile topbar wraps its status line — enough for ~30% string expansion. See "Design intent not yet implemented".
 
 ## 11. Accessibility
 
@@ -230,22 +230,28 @@ Required locales for this product family: en-US, en-GB, es-419, es-ES, de-DE, fr
 
 ## 12. StarHermit integration
 
-Per https://wiki.starhermit.com/ conventions the distribution root carries `starhermit.txt` (`name=Discovery Merge`, `launch=index.html`, `owner=…`, `server=server.js`, `version=1.0.0`, `cover=coverart.png`).
+Per https://wiki.starhermit.com/ conventions the distribution root carries `starhermit.txt` (`name=Discovery Merge`, `launch=index.html`, `owner=…`, `server=server.js`, `version=1.0.0`, `cover`, plus one `control.<action>=<Code> | <Label>` line per keyboard action: `up`/`down`/`left`/`right` = arrows on the 2D board, `cancel` = Escape, `undo` = KeyU, `hint` = KeyH, `camera` = KeyC).
+
+All platform I/O goes through `starhermit-sdk.js` (an unmodified copy of `tools/starhermit-sdk.js`, loaded as a classic script before the module graph); `src/platform.js` (`Platform`) is a thin adapter over `window.StarHermit` that keeps the game's API.
 
 Used:
-- **Authoritative game script** (`server.js`): `GET /api/v1/time`, `GET/POST /api/v1/leaderboard/daily`, `POST /api/v1/presence`, `/activity/start|end`, `/telemetry`. Daily submissions must be for the current UTC day, carry matching rules/content versions and the daily seed, replay to a win through the real engine, and match the claimed total and final hash exactly; elapsed seconds are server-derived. Board rows persist in `data/leaderboard.json`.
+- **Own game server** (`server.js`): the client calls only `GET /api/v1/time` (Bearer), and only when signed in (on boot and on sign-in). Standalone (no launch token) the game makes no own-server requests at all and uses the local clock. The legacy `/api/v1/leaderboard/daily`, `/presence`, `/activity/*` and `/telemetry` routes in `server.js` are not called (they do not exist on the platform).
 - **Server time** for daily boundaries with round-trip offset (`Platform.syncTime`).
-- **Launch token**: read from the URL fragment `#game_token=<jwt>` (optional `&session_id=`, stripped after the read; `?token=` kept for local dev), decoded for `sub` + `game_scope` (never hard-coded), sent as a Bearer header on every call, re-minted every 45 min via `POST /api/v1/games/{slug}/launch-token` (60 s retry), never stored. The old `<uuid>.starhermit.com` force-offline is gone — hosted mode activates whenever a token exists.
-- **Identity**: hosted display name is the profile nickname from `GET /api/v1/users/{sub}/profile` (never usernames, never `/api/v1/me`; `Player <id8>` fallback), shown in the Curator Profile line and on daily submissions/board rows; the top bar shows "Playing as <nickname> · sync status". **Cloud save**: the checksummed save document mirrors to one zip+base64 slot at `GET/PUT /api/v1/me/cloud-saves/{slug}` — remote wins on boot (validated by `parseSave`), saves debounce 2 s and flush on `pagehide`/hidden with keepalive.
-- **Presence heartbeat / activity / telemetry**: own-server sinks exist for local dev only — hosted mode stays silent (no launch-token endpoints, wiki).
+- **Launch token and sign-in**: `StarHermit.init()` reads `#game_token=` (library; optional `&session_id=`) or `#access_token=` (sign-in return), strips it, takes the slug from `game_scope` and renews the token before expiry; it is never stored. If renewal is refused the game falls back to the guest identity, the sign-in button returns and play continues locally. On `*.starhermit.com` without a token the title shows "Sign in with StarHermit" (`StarHermit.signIn()`); hidden when signed in or running locally.
+- **Identity**: the nickname from `StarHermit.profile()` (`Player <id>` fallback) is shown on the Curator Profile card and on daily submissions/board rows; the top bar shows "Playing as <nickname> · sync status".
+- **Cloud save**: the checksummed save document is mirrored with `StarHermit.saveJSON` (2 s debounce) to `/api/v1/me/cloud-saves/game:<slug>`, flushed with keepalive on `pagehide`/hidden; remote wins on boot (validated by `parseSave`).
+- **Settings KV**: every change in Settings (volumes, mute, graphics, reduced motion, high contrast, left-handed, 2D board, camera tilt, larger text, colour-vision palette, haptics, hints) is written with `patchSettings` (400 ms debounce) once the boot read of `getSettings()` has been applied (platform wins).
+- **Invite link**: when signed in the title shows "Invite a friend": copies `StarHermit.inviteLink()` and confirms with a toast (shows the link if copying is blocked).
+- **Controls**: keys are matched by `event.code` through `StarHermit.loadBindings(defaults)`; How to play shows the effective keys. No in-game rebinding UI.
+- **Presence heartbeat / activity / telemetry**: removed from the client.
 
-Not used: platform achievements (local), friends filtering, realtime sessions, rooms, chat, voice. Standalone keeps the local `guest-…` id as the board name.
+Not used: platform achievements and leaderboards (the game's server reports neither; achievements are local), platform sessions, matchmaking, session invites, chat, replays, realtime rooms, voice — the game is solo and `server.js` is not a platform session script. New platform strings (status, sign-in, invite, toasts) are localized in the nine locales. Standalone keeps the local `guest-…` id as the board name and makes no StarHermit or own-server calls.
 
 ## 13. Technical architecture
 
 - **Rules** are pure and node-safe; `session` is the only writer of rules state; `render` and `ui` consume snapshots and event lists. UI state (selection, drawers, modals) never touches simulation state.
 - **Determinism/replay**: `replayEnvelope()` = schema 1, rules and content versions, level id, seed, initial hash, ordered commands, per-command hashes, result. `replay(level, commands)` in `rules.js` rebuilds any round; the server and the smoke test rely on it.
-- **Persistence** (`localStorage`): `discovery-merge.save.v1` (FNV-checksummed document: settings, journey bests, dailies, streak days, codex, achievements, stats, casual board), `discovery-merge.snapshot.v1` (paused board, written every second and on pagehide/visibility change), `discovery-merge.guest.v1`.
+- **Persistence** (`localStorage`): `discovery-merge.save.v1` (FNV-checksummed document: settings, journey bests, dailies, streak days, codex, achievements, stats, local daily board `leaderboardLocal`, last 14 days), `discovery-merge.snapshot.v1` (paused board, written every second and on pagehide/visibility change), `discovery-merge.guest.v1`.
 - **Rendering**: one `WebGLRenderer` per board with ACES tone mapping, sRGB output, a fitted key-light shadow map and a hemisphere fill; presets, post-processing and adaptive resolution as described under Graphics (§8). Addons load through the importmap (`three` → `vendor/three.module.js`, `three/addons/` → `vendor/addons/`), all from r160. Geometries are shared and disposed on `dispose()`; the renderer stops entirely while the tab is hidden.
 - **Budgets**: on a full 7×7 board, 49 cell meshes + up to ~100 item meshes (a piece is body + label, a generator adds a ring) + base, wall, ground and 16 prop meshes ≈ 170–200 draw calls worst case, one 240-point particle cloud; no per-frame allocations beyond tween bookkeeping. If WebGL init fails the game switches to the 2D DOM board with a toast and keeps playing.
 - **Server**: static files with `no-cache`, refuses `/data/`, `server.js`, `spec.md`, path traversal and malformed encodings (400); 256 KB body cap; command logs capped at 20 000.
@@ -253,9 +259,9 @@ Not used: platform achievements (local), friends filtering, realtime sessions, r
 
 ## 14. Testing and acceptance criteria
 
-`npm test` (`node --test tests/*.test.mjs`, 32 tests; `gfx.test.mjs` covers GPU detection, preset/override resolution, render-scale clamping and preset-clears-overrides): spawn determinism, charges, merge/mismatch/max-tier, cobweb rules, move rules, delivery and win, move-limit loss, no-legal-moves loss, serialization round trip, replay hash stability, seed divergence, immutability, component scoring, time bonus cap, malformed-command fuzz, `validateLevel` on all 40 journey stages, a sweep of dailies, practice, challenges and lessons, a golden-hash session, and greedy-solver winnability of every journey stage and sampled dailies.
+`npm test` (`node --test tests/*.test.mjs`; `platform.test.mjs` loads the SDK and `src/platform.js` against a stubbed `window`/`fetch`/launch hash — token read and fragment strip, profile nickname, `game:<slug>` cloud-save round-trip, debounced settings patch, binding overrides, invite link, Bearer on the own-server clock, and no StarHermit call standalone; `gfx.test.mjs` covers GPU detection, preset/override resolution, render-scale clamping and preset-clears-overrides): spawn determinism, charges, merge/mismatch/max-tier, cobweb rules, move rules, delivery and win, move-limit loss, no-legal-moves loss, serialization round trip, replay hash stability, seed divergence, immutability, component scoring, time bonus cap, malformed-command fuzz, `validateLevel` on all 40 journey stages, a sweep of dailies, practice, challenges and lessons, a golden-hash session, and greedy-solver winnability of every journey stage and sampled dailies.
 
-`tests/e2e.mjs` asserts: boot without page errors or console errors/warnings, Settings → Graphics (Auto resolves to Low on the software GPU, Low then High applied to `data-gfx-preset`, a bloom override reflected in the summary, preset/override/frame-rate choice surviving a reload, choosing Auto clearing overrides), title hidden when other screens show, 40 stage buttons with exactly one unlocked, setup → play with the 2D board visible, hint and pause/resume, a "Cabinet restored!" result with breakdown rows and a Next stage button, journey progress persisted, and the Score Chase table highlighting only the current guest.
+`tests/e2e.mjs` asserts: boot without page errors or console errors/warnings, Settings → Graphics (Auto resolves to Low on the software GPU, Low then High applied to `data-gfx-preset`, a bloom override reflected in the summary, preset/override/frame-rate choice surviving a reload, choosing Auto clearing overrides), title hidden when other screens show, 40 stage buttons with exactly one unlocked, setup → play with the 2D board visible, hint and pause/resume, a "Cabinet restored!" result with breakdown rows and a Next stage button, journey progress persisted, and the Score Chase table highlighting only the current guest. Standalone passes fail on any same-origin `/api` or `/ws` request; a signed-in pass per viewport (platform API stubbed) checks the nickname on the Profile card, the `game:discovery-merge` save load, the stripped fragment, a platform setting (high contrast), the Invite a friend toast on-screen, and a platform key binding in How to play.
 
 `tests/e2e.smoke.mjs` (against a running `server.js`): a solver-produced daily envelope is accepted and ranked; the same envelope with an inflated total is rejected with `score-mismatch`.
 
@@ -278,7 +284,7 @@ QA bar as checkable statements: a new player is taught by Learn lessons or by th
 
 ## 16. Known limitations
 
-- The daily board identifies players by display name only; without a host-verified identity a client could submit under another name (server accepts any `name`).
+- The daily board is per-device only; there is no shared daily ranking.
 - `legalActions` lists one direction per mergeable pair (lower cell → higher cell) so hints never suggest merging onto the lower cell, although `applyMerge` accepts either direction when the player chooses it.
 - Stage 5 lists "crates block cells" in its rules summary but its crate count is 0; crates first appear on stage 6.
 - "Brisk Catalog" differs from a standard 6×6 board only by theme; its speed target is the ordinary par-clock time bonus.

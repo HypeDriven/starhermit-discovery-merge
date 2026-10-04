@@ -335,3 +335,5 @@ body.reduced-motion * { animation-duration: 0.001s !important; transition-durati
 @media (prefers-reduced-motion: reduce) {
   body:not(.motion-ok) * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
 }
+.title-platform { display: flex; gap: 0.8rem; flex-wrap: wrap; justify-content: center; margin-top: 0.8rem; }
+.title-platform[hidden], .title-platform [hidden] { display: none; }

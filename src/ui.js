@@ -35,6 +35,23 @@ export function announce(msg, assertive = false) {
   requestAnimationFrame(() => { region.textContent = msg; });
 }
 
+// Keyboard bindings: action → KeyboardEvent.code list (platform overrides
+// applied via StarHermit controls; see starhermit.txt control.* lines).
+export const DEFAULT_KEYS = {
+  up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],
+  cancel: ['Escape'], undo: ['KeyU'], hint: ['KeyH'], camera: ['KeyC'],
+};
+export const keys = { bindings: DEFAULT_KEYS, action: {} };
+export function setKeyBindings(b) {
+  keys.bindings = b;
+  keys.action = {};
+  for (const [a, codes] of Object.entries(b)) for (const c of codes || []) keys.action[c] = a;
+}
+setKeyBindings(DEFAULT_KEYS);
+export function keyLabel(action) {
+  return (keys.bindings[action] || []).map((c) => String(c).replace(/^Key|^Digit/, '').replace(/^Arrow(.+)$/, '$1').replace(/^Escape$/, 'Esc')).join('/');
+}
+
 export function toast(msg, isError = false) {
   const root = document.getElementById('toast-root');
   const t = el('div', { class: 'toast' + (isError ? ' err' : ''), role: 'status' }, msg);
@@ -119,10 +136,11 @@ export class DomBoard {
       const i = +cell;
       const { cols, rows } = this.level;
       let next = -1;
-      if (e.key === 'ArrowLeft') next = i % cols > 0 ? i - 1 : -1;
-      else if (e.key === 'ArrowRight') next = i % cols < cols - 1 ? i + 1 : -1;
-      else if (e.key === 'ArrowUp') next = i - cols >= 0 ? i - cols : -1;
-      else if (e.key === 'ArrowDown') next = i + cols < cols * rows ? i + cols : -1;
+      const a = keys.action[e.code];
+      if (a === 'left') next = i % cols > 0 ? i - 1 : -1;
+      else if (a === 'right') next = i % cols < cols - 1 ? i + 1 : -1;
+      else if (a === 'up') next = i - cols >= 0 ? i - cols : -1;
+      else if (a === 'down') next = i + cols < cols * rows ? i + cols : -1;
       if (next >= 0) { e.preventDefault(); this.buttons[next].focus(); }
     };
   }
@@ -432,11 +450,12 @@ export class PlayController {
     document.addEventListener('keydown', (e) => {
       if (document.getElementById('screen-play').hidden) return;
       if (document.querySelector('#overlay-root .overlay')) return; // modal open
-      const k = e.key.toLowerCase();
-      if (k === 'escape') { if (this.selected >= 0) { this.selected = -1; this._sync(); } else this.hooks.onPause?.(); }
-      else if (k === 'u') this.doUndo();
-      else if (k === 'h') this.showHint();
-      else if (k === 'c') this.renderer?.resetCamera();
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = keys.action[e.code];
+      if (k === 'cancel') { if (this.selected >= 0) { this.selected = -1; this._sync(); } else this.hooks.onPause?.(); }
+      else if (k === 'undo') this.doUndo();
+      else if (k === 'hint') this.showHint();
+      else if (k === 'camera') this.renderer?.resetCamera();
     }, { signal: this._abort.signal });
   }
 
