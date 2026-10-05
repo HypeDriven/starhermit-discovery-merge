@@ -1060,7 +1060,8 @@ export class BoardRenderer {
   _syncSize(rescale) {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     if (!w || !h) return;
-    const ratio = Math.min(window.devicePixelRatio || 1, this.q.dprCap) * this.q.scale * this.adaptiveScale;
+    // × UIScale: the canvas sits inside the zoomed #app, so its backing store must cover the zoom.
+    const ratio = Math.min(window.devicePixelRatio || 1, this.q.dprCap) * ((window.UIScale && UIScale.value) || 1) * this.q.scale * this.adaptiveScale;
     if (w !== this.size[0] || h !== this.size[1] || ratio !== this.pixelRatio || rescale) {
       this.size = [w, h];
       this.pixelRatio = ratio;
