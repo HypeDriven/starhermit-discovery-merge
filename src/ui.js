@@ -102,7 +102,9 @@ export function openModal({ title, body, actions = [], onClose }) {
   };
   document.addEventListener('keydown', onKey, true);
   root.append(overlay);
-  dialog.querySelector('button, input, select')?.focus();
+  // Open at the top (heading visible) even when the first control is below the fold.
+  dialog.querySelector('button, input, select')?.focus({ preventScroll: true });
+  for (const n of [dialog, ...dialog.querySelectorAll('*')]) if (n.scrollTop) n.scrollTop = 0;
   return { close, dialog };
 }
 
