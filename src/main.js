@@ -172,7 +172,7 @@ function setupShell(level, { ranked, onStart, extra }) {
       el('span', {}, `🎲 seed ${level.seed.toString(16)}`),
       level.moveLimit ? el('span', {}, `🎯 ${level.moveLimit} actions max`) : null,
       el('span', { class: ranked ? 'ranked-badge' : 'unranked-badge' }, ranked ? 'Ranked' : 'Unranked — no effect on rating')),
-    extra || null,
+    ...(extra ? [extra] : []),
     el('button', { class: 'primary big', onclick: onStart }, 'Start'),
   );
   showScreen('setup');

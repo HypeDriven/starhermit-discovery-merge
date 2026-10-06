@@ -56,7 +56,16 @@ export function toast(msg, isError = false) {
   const root = document.getElementById('toast-root');
   const t = el('div', { class: 'toast' + (isError ? ' err' : ''), role: 'status' }, msg);
   root.append(t);
-  setTimeout(() => t.remove(), 2600);
+  syncToastH();
+  setTimeout(() => { t.remove(); syncToastH(); }, 2600);
+}
+
+// Scrolling screens pad their bottom by the toast stack's height (layout px;
+// screens and toasts share the same zoom) so results buttons can always be
+// scrolled clear of a toast on short screens.
+function syncToastH() {
+  const root = document.getElementById('toast-root');
+  document.documentElement.style.setProperty('--toast-h', root.childElementCount ? `${root.offsetHeight + 8}px` : '0px');
 }
 
 export function openModal({ title, body, actions = [], onClose }) {

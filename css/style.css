@@ -83,6 +83,7 @@ button.back { margin-top: 1rem; }
   padding: 1.2rem clamp(0.8rem, calc(4vw / var(--ui-scale, 1)), 3rem);
   max-width: 100%;
 }
+.screen:not(.play):not(#screen-title) { padding-bottom: calc(1.2rem + var(--toast-h, 0px)); }
 /* Id-selector screen rules below are more specific than `.screen[hidden]`, so
    hiding is asserted per-screen too — otherwise a hidden screen keeps painting
    behind the visible one. */
@@ -290,9 +291,9 @@ button.back { margin-top: 1rem; }
 .board-table .me { color: var(--accent); font-weight: 700; }
 
 /* toasts */
-#toast-root { position: fixed; bottom: calc(1rem + var(--safe-bottom)); left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 0.4rem; pointer-events: none; }
+#toast-root { position: fixed; bottom: calc(1rem + var(--safe-bottom)); left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 0.4rem; pointer-events: none; width: max-content; max-width: calc(100% - 24px); }
 .toast {
-  background: var(--panel-2); border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--accent); border-radius: 1.2em;
   padding: 0.45rem 1.1rem; animation: toast-in 0.2s ease-out;
 }
 .toast.err { border-color: var(--danger); }
