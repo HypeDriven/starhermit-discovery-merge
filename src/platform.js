@@ -67,6 +67,20 @@ export class Platform {
     await this.syncTime();
   }
 
+  /* Post a finished round's total to the platform leaderboard (score-script.js).
+   * Resolves { posted, rank } — rank on the high-score board, or null. */
+  async submitScore(total) {
+    const s = sdk();
+    if (!s || !this.hosted) return { posted: false, rank: null };
+    const keys = await s.submitScores({ 'high-score': total });
+    if (!keys.includes('high-score')) return { posted: false, rank: null };
+    try {
+      const r = await s.leaderboard('high-score', { pageSize: 100 });
+      const me = ((r && r.items) || []).find((i) => i.userId === s.userId);
+      return { posted: true, rank: me ? me.rank : null };
+    } catch { return { posted: true, rank: null }; }
+  }
+
   onAuth(fn) { if (typeof fn === 'function') this._authListeners.add(fn); }
   canSignIn() { return !!sdk()?.canSignIn(); }
   signIn() { return !!sdk()?.signIn(); }

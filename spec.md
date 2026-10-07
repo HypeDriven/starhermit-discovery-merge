@@ -33,7 +33,8 @@ This document describes Discovery Merge as it ships today. Present tense through
 | `src/audio.js` | `AudioEngine`: three buses, sample one-shots with synth fallbacks, seeded music and ambience |
 | `src/platform.js` | `/api` adapter: fragment launch token + Bearer + 45-min refresh, server time (signed in only; none standalone), profile nickname, cloud-save slot (zip+base64, debounced); offline fallbacks |
 | `src/persist.js` | Checksummed save, board snapshot, guest id, `ACHIEVEMENTS`, `DEFAULT_SETTINGS` |
-| `server.js` | Script declared in `starhermit.txt`: static hosting and `/api/v1/time` (its legacy daily board/presence/activity/telemetry routes are no longer called) |
+| `score-script.js` | StarHermit platform script (`server=` in `starhermit.txt`): range-checks a finished round's total and posts it to the `high-score` leaderboard (canonical copy in the games repo's `tools/score-script.js`) |
+| `server.js` | Local dev server: static hosting and `/api/v1/time` (its legacy daily board/presence/activity/telemetry routes are no longer called) |
 | `sfx/` | 15 Opus clips, `manifest.txt` (canonical), `manifest.json` (generator input), `manifest.md` |
 | `assets/` | `key-art.webp`, `cabinet-restored.webp`, `cabinet-locked.webp` |
 | `vendor/` | `three.module.js` (r160) and `addons/` (r160 postprocessing passes, shaders, `RoomEnvironment`, `RoundedBoxGeometry`) mapped by the `index.html` importmap |
@@ -230,7 +231,7 @@ Required locales for this product family: en-US, en-GB, es-419, es-ES, de-DE, fr
 
 ## 12. StarHermit integration
 
-Per https://wiki.starhermit.com/ conventions the distribution root carries `starhermit.txt` (`name=Discovery Merge`, `launch=index.html`, `owner=…`, `server=server.js`, `version=1.0.0`, `cover`, plus one `control.<action>=<Code> | <Label>` line per keyboard action: `up`/`down`/`left`/`right` = arrows on the 2D board, `cancel` = Escape, `undo` = KeyU, `hint` = KeyH, `camera` = KeyC).
+Per https://wiki.starhermit.com/ conventions the distribution root carries `starhermit.txt` (`name=Discovery Merge`, `launch=index.html`, `owner=…`, `server=score-script.js`, `version=1.0.0`, `cover`, plus one `control.<action>=<Code> | <Label>` line per keyboard action: `up`/`down`/`left`/`right` = arrows on the 2D board, `cancel` = Escape, `undo` = KeyU, `hint` = KeyH, `camera` = KeyC).
 
 All platform I/O goes through `starhermit-sdk.js` (an unmodified copy of `tools/starhermit-sdk.js`, loaded as a classic script before the module graph); `src/platform.js` (`Platform`) is a thin adapter over `window.StarHermit` that keeps the game's API.
 
@@ -244,8 +245,9 @@ Used:
 - **Invite link**: when signed in the title shows "Invite a friend": copies `StarHermit.inviteLink()` and confirms with a toast (shows the link if copying is blocked).
 - **Controls**: keys are matched by `event.code` through `StarHermit.loadBindings(defaults)`; How to play shows the effective keys. No in-game rebinding UI.
 - **Presence heartbeat / activity / telemetry**: removed from the client.
+- **Leaderboard**: when signed in, every finished Journey, Daily or Challenge round posts its total through `StarHermit.submitScores` (`Platform.submitScore`; a practice session whose `score-script.js` posts it to the `high-score` board, integer, higher is better, 0–100,000), and the results screen shows "Leaderboard rank: #N" (or posted / not posted). Learn and Practice post nothing; standalone posts nothing and shows no line.
 
-Not used: platform achievements and leaderboards (the game's server reports neither; achievements are local), platform sessions, matchmaking, session invites, chat, replays, realtime rooms, voice — the game is solo and `server.js` is not a platform session script. New platform strings (status, sign-in, invite, toasts) are localized in the nine locales. Standalone keeps the local `guest-…` id as the board name and makes no StarHermit or own-server calls.
+Not used: platform achievements (achievements are local), platform multiplayer sessions, matchmaking, session invites, chat, replays, realtime rooms, voice — the game is solo. New platform strings (status, sign-in, invite, toasts, leaderboard line) are localized in the nine locales. Standalone keeps the local `guest-…` id as the board name and makes no StarHermit or own-server calls.
 
 ## 13. Technical architecture
 
