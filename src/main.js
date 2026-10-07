@@ -36,6 +36,14 @@ let dailyTimer = null;
 
 function persist() { storeSave(save); }
 
+// Replace the save in place: `save` is const and its settings object is shared
+// (audio engine, renderer, settings panel), so they all see the adopted doc.
+function adoptSave(next) {
+  const settings = Object.assign(save.settings, next.settings);
+  for (const k of Object.keys(save)) delete save[k];
+  Object.assign(save, next, { settings });
+}
+
 // Top-bar status: hosted shows the account nickname + cloud sync state.
 // StarHermit strings (status, sign-in, invite, toasts) in the nine locales.
 const PT = {
@@ -929,8 +937,8 @@ function syncFromPlatform() {
   platform.loadCloudSave().then((remoteJson) => {
     const remote = remoteJson ? parseSave(remoteJson) : null;
     if (remote) {
-      save = remote;
-      persist(); // local cache mirrors the remote doc
+      adoptSave(remote);
+      persist(); // local cache mirrors the remote doc (supersedes any queued stale cloud save)
       applySettings();
       refreshTitle();
     }
