@@ -3,6 +3,11 @@
 // widgets. UI state is fully separate from simulation state.
 
 import { CHAINS, itemIcon, itemLabel } from './content.js';
+import { T, N } from './i18n.js';
+
+/** Localized item / chain names (content tables hold the US-English keys). */
+export const itemName = (chain, tier) => T(itemLabel(chain, tier));
+export const chainName = (chain) => T(CHAINS[chain]?.name || N('Unknown'));
 import { isGenerator, isPiece, canMergeItems } from './engine/rules.js';
 
 export function el(tag, attrs = {}, ...children) {
@@ -68,26 +73,47 @@ function syncToastH() {
   document.documentElement.style.setProperty('--toast-h', root.childElementCount ? `${root.offsetHeight + 8}px` : '0px');
 }
 
+// Open dialogs whose body is a render function; relabelModals() rebuilds
+// those bodies after a language change (title and buttons carry data-i18n,
+// so the language switch relabels them in place).
+const liveModals = new Set();
+
+export function relabelModals() {
+  for (const m of liveModals) {
+    const next = m.render();
+    m.node.replaceWith(next);
+    m.node = next;
+  }
+}
+
+// title and action labels are US-English keys; body is an element or a
+// function returning one (re-run when the language changes).
 export function openModal({ title, body, actions = [], onClose }) {
   const root = document.getElementById('overlay-root');
   const prevFocus = document.activeElement;
-  const dialog = el('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': title });
-  dialog.append(el('h2', {}, title));
-  if (body) dialog.append(body);
+  const dialog = el('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': T(title), 'data-i18n-aria': title });
+  dialog.append(el('h2', { 'data-i18n': title }, T(title)));
+  let live = null;
+  if (typeof body === 'function') {
+    live = { render: body, node: body() };
+    liveModals.add(live);
+    dialog.append(live.node);
+  } else if (body) dialog.append(body);
   const actionRow = el('div', { class: 'dialog-actions' });
   dialog.append(actionRow);
   const overlay = el('div', { class: 'overlay' }, dialog);
 
   const close = () => {
     overlay.remove();
+    if (live) liveModals.delete(live);
     document.removeEventListener('keydown', onKey, true);
     prevFocus?.focus?.();
     onClose?.();
   };
   for (const a of actions) {
-    actionRow.append(el('button', { class: a.primary ? 'primary' : 'ghost', onclick: () => { a.onClick?.(); if (a.closes !== false) close(); } }, a.label));
+    actionRow.append(el('button', { class: a.primary ? 'primary' : 'ghost', 'data-i18n': a.label, onclick: () => { a.onClick?.(); if (a.closes !== false) close(); } }, T(a.label)));
   }
-  if (!actions.length) actionRow.append(el('button', { class: 'primary', onclick: () => close() }, 'Close'));
+  if (!actions.length) actionRow.append(el('button', { class: 'primary', 'data-i18n': 'Close', onclick: () => close() }, T('Close')));
 
   const onKey = (e) => {
     if (e.key === 'Escape') { e.stopPropagation(); close(); }
@@ -160,12 +186,14 @@ export class DomBoard {
     const it = state.cells[i];
     const row = Math.floor(i / this.level.cols) + 1;
     const col = (i % this.level.cols) + 1;
-    const pos = `row ${row}, column ${col}`;
-    if (!it) return `Empty cell, ${pos}`;
-    if (it.kind === 'generator') return `Field Kit generator for ${CHAINS[it.chain].name}, ${pos}. Activate to produce an item.`;
-    if (it.kind === 'crate') return `Crate blocking the cell, ${pos}`;
-    const name = itemLabel(it.chain, it.tier);
-    return `${name}, tier ${it.tier + 1}${it.webbed ? ', cobwebbed — cannot move' : ''}, ${pos}`;
+    const pos = T('row {row}, column {col}', { row, col });
+    if (!it) return T('Empty cell, {pos}', { pos });
+    if (it.kind === 'generator') return T('Field Kit generator for {chain}, {pos}. Activate to produce an item.', { chain: chainName(it.chain), pos });
+    if (it.kind === 'crate') return T('Crate blocking the cell, {pos}', { pos });
+    const name = itemName(it.chain, it.tier);
+    return it.webbed
+      ? T('{name}, tier {tier}, cobwebbed — cannot move, {pos}', { name, tier: it.tier + 1, pos })
+      : T('{name}, tier {tier}, {pos}', { name, tier: it.tier + 1, pos });
   }
 
   render(state, selected = -1) {
@@ -225,21 +253,21 @@ export class DomBoard {
 // ---------------------------------------------------------------------------
 
 export const INVALID_TEXT = {
-  'not-active': 'The round is over.',
-  'out-of-moves': 'No moves left.',
-  'out-of-bounds': 'That is outside the board.',
-  'not-generator': 'Only a Field Kit can produce items.',
-  'no-charges': 'That Field Kit is out of charges.',
-  'board-full': 'The board is full — merge or deliver something first.',
-  'no-piece': 'There is no piece there.',
-  'same-cell': 'That is the same cell.',
-  'target-occupied': 'That cell is occupied.',
-  'target-empty': 'Nothing there to merge with.',
-  'mismatch': 'Pieces must be the same kind and tier to merge.',
-  'max-tier': 'That discovery is already at its highest tier.',
-  'webbed': 'Cobwebbed pieces cannot move. Merge a matching piece onto them.',
-  'no-matching-need': 'No open request needs that item.',
-  'bad-request': 'That request is already complete.',
+  'not-active': N('The round is over.'),
+  'out-of-moves': N('No moves left.'),
+  'out-of-bounds': N('That is outside the board.'),
+  'not-generator': N('Only a Field Kit can produce items.'),
+  'no-charges': N('That Field Kit is out of charges.'),
+  'board-full': N('The board is full — merge or deliver something first.'),
+  'no-piece': N('There is no piece there.'),
+  'same-cell': N('That is the same cell.'),
+  'target-occupied': N('That cell is occupied.'),
+  'target-empty': N('Nothing there to merge with.'),
+  'mismatch': N('Pieces must be the same kind and tier to merge.'),
+  'max-tier': N('That discovery is already at its highest tier.'),
+  'webbed': N('Cobwebbed pieces cannot move. Merge a matching piece onto them.'),
+  'no-matching-need': N('No open request needs that item.'),
+  'bad-request': N('That request is already complete.'),
 };
 
 export class PlayController {
@@ -303,15 +331,14 @@ export class PlayController {
     if (!this._tutorialAllows(cmd)) {
       const step = this.tutorial.steps[this.tutorialStep];
       this.audio.invalid();
-      announce('Not yet — ' + step.text, true);
+      announce(T('Not yet — {step}', { step: T(step.text) }), true);
       return;
     }
     const r = this.session.dispatch(cmd);
     if (!r.ok) {
       if (r.duplicate) return;
       this.audio.invalid();
-      const msg = INVALID_TEXT[r.error] || 'That action is not allowed.';
-      announce(msg, true);
+      announce(T(INVALID_TEXT[r.error] || N('That action is not allowed.')), true);
       if (cmd.cell !== undefined) this.renderer?.shakeCell(cmd.cell);
       if (cmd.to !== undefined) this.renderer?.shakeCell(cmd.to);
       this.hooks.refresh();
@@ -335,8 +362,8 @@ export class PlayController {
       else if (e.type === 'merge') { this.audio.merge(e.item.tier); if (e.unwebbed) this.audio.webClear(); }
       else if (e.type === 'move') this.audio.move();
       else if (e.type === 'deliver') this.audio.deliver();
-      else if (e.type === 'discover') { this.audio.discover(); announce(`New discovery: ${itemLabel(e.chain, e.tier)}!`); }
-      else if (e.type === 'request-complete') { this.audio.requestComplete(); announce('Request complete!'); }
+      else if (e.type === 'discover') { this.audio.discover(); announce(T('New discovery: {name}!', { name: itemName(e.chain, e.tier) })); }
+      else if (e.type === 'request-complete') { this.audio.requestComplete(); announce(T('Request complete!')); }
       else if (e.type === 'win') this.audio.win();
       else if (e.type === 'lost') this.audio.lose();
     }
@@ -355,7 +382,7 @@ export class PlayController {
     this.audio.select();
     if (cell >= 0) {
       const it = this.state.cells[cell];
-      if (isPiece(it)) announce(`${itemLabel(it.chain, it.tier)} selected. Choose a matching piece to merge, an empty cell to move, or a request to deliver.`);
+      if (isPiece(it)) announce(T('{name} selected. Choose a matching piece to merge, an empty cell to move, or a request to deliver.', { name: itemName(it.chain, it.tier) }));
     }
     this._sync();
   }
@@ -373,27 +400,27 @@ export class PlayController {
     }
     if (isGenerator(it)) { this.audio.tap(); this.dispatch({ type: 'tap', cell }); return; }
     if (isPiece(it)) { this.select(cell); return; }
-    if (it?.kind === 'crate') { this.audio.invalid(); announce('A crate blocks that cell.', true); return; }
+    if (it?.kind === 'crate') { this.audio.invalid(); announce(T('A crate blocks that cell.'), true); return; }
     // Empty cell tap with nothing selected: acknowledge quietly.
     this.audio.tap();
   }
 
   deliverSelected(requestId) {
-    if (this.selected < 0) { announce('Select a piece first, then deliver it.', true); return; }
+    if (this.selected < 0) { announce(T('Select a piece first, then deliver it.'), true); return; }
     this.dispatch({ type: 'deliver', cell: this.selected, request: requestId });
   }
 
   showHint() {
     const hint = this.session.hint();
-    if (!hint) { announce('No moves available.', true); return; }
+    if (!hint) { announce(T('No moves available.'), true); return; }
     this.audio.hint();
     this.renderer?.setHint(hint);
     this.domBoard.setHint(hint);
     const text = hint.kind === 'tap'
-      ? `Hint: tap the Field Kit for ${CHAINS[hint.chain].name}.`
+      ? T('Hint: tap the Field Kit for {chain}.', { chain: chainName(hint.chain) })
       : hint.kind === 'merge'
-        ? `Hint: merge the two ${itemLabel(hint.chain, hint.tier)} pieces.`
-        : `Hint: deliver the ${itemLabel(hint.chain, hint.tier)} to its request.`;
+        ? T('Hint: merge the two {name} pieces.', { name: itemName(hint.chain, hint.tier) })
+        : T('Hint: deliver the {name} to its request.', { name: itemName(hint.chain, hint.tier) });
     announce(text);
     setTimeout(() => { this.renderer?.setHint(null); this.domBoard.setHint(null); }, 2600);
   }
@@ -471,7 +498,7 @@ export class PlayController {
   }
 
   doUndo() {
-    if (this.session.undo()) { this.audio.undo(); announce('Undone.'); this._sync(); }
-    else { this.audio.invalid(); announce('Undo is not available here.', true); }
+    if (this.session.undo()) { this.audio.undo(); announce(T('Undone.')); this._sync(); }
+    else { this.audio.invalid(); announce(T('Undo is not available here.'), true); }
   }
 }

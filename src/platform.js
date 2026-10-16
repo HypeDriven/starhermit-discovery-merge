@@ -29,6 +29,7 @@ export class Platform {
     this.sync = 'offline';     // offline | saving | synced (cloud mirror)
     this._syncListeners = new Set();
     this._authListeners = new Set();
+    this._conflictListeners = new Set();
     this._started = false;
     this._patch = null;
     this._patchTimer = null;
@@ -49,6 +50,10 @@ export class Platform {
       this._started = true;
       s.init();
       s.on('saved', (ok) => { if (this.hosted) this._setSync(ok ? 'synced' : 'offline'); });
+      // Another device wrote the cloud slot: the game reloads, merges and saves.
+      s.on('saveconflict', () => {
+        for (const fn of this._conflictListeners) { try { fn(); } catch { /* ok */ } }
+      });
       s.on('auth', (a) => {
         const was = this.hosted;
         this.hosted = !!(a && a.signedIn && s.slug);
@@ -82,6 +87,9 @@ export class Platform {
   }
 
   onAuth(fn) { if (typeof fn === 'function') this._authListeners.add(fn); }
+  onSaveConflict(fn) { if (typeof fn === 'function') this._conflictListeners.add(fn); }
+  saveConflicted() { return !!sdk()?.saveConflicted?.(); }
+  cloudLoadFailed() { return !!sdk()?.saveLoadFailed?.(); }
   canSignIn() { return !!sdk()?.canSignIn(); }
   signIn() { return !!sdk()?.signIn(); }
   inviteLink() { return this.hosted ? sdk()?.inviteLink() || null : null; }

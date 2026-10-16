@@ -112,6 +112,62 @@ export function parseSave(json) {
   }
 }
 
+// Merge two save documents after a cloud-save conflict (another device wrote
+// the slot). Progress only ever grows: journey stages keep the better score,
+// dailies OR their completion and keep the higher score, codex tiers and
+// lifetime stats take the maximum, achievements keep the earliest unlock,
+// lessons and streak days are unions, and the local daily board is a
+// de-duplicated union of the last 14 days. Settings stay the local ones.
+export function mergeSaves(remote, local) {
+  if (!remote) return local;
+  if (!local) return remote;
+  const base = freshSave();
+  const out = { ...base, ...remote, ...local, version: SAVE_VERSION };
+  out.settings = { ...base.settings, ...(remote.settings || {}), ...(local.settings || {}) };
+
+  const better = (a, b) => (!a ? b : !b ? a : (b.score > a.score ? b : a));
+  const completed = { ...(remote.journey?.completed || {}) };
+  for (const [k, v] of Object.entries(local.journey?.completed || {})) completed[k] = better(completed[k], v);
+  out.journey = { ...base.journey, ...(remote.journey || {}), ...(local.journey || {}), completed,
+    bests: { ...(remote.journey?.bests || {}), ...(local.journey?.bests || {}) } };
+
+  const dailies = { ...(remote.dailies || {}) };
+  for (const [d, v] of Object.entries(local.dailies || {})) {
+    const r = dailies[d];
+    dailies[d] = !r ? v : { ...r, ...v, completed: !!(r.completed || v.completed), score: Math.max(r.score || 0, v.score || 0) };
+  }
+  out.dailies = dailies;
+  out.dailyStreakDays = [...new Set([...(remote.dailyStreakDays || []), ...(local.dailyStreakDays || [])])].sort();
+
+  const codex = { ...(remote.codex || {}) };
+  for (const [c, t] of Object.entries(local.codex || {})) codex[c] = Math.max(codex[c] ?? -1, t);
+  out.codex = codex;
+
+  const ach = { ...(remote.achievements || {}) };
+  for (const [id, at] of Object.entries(local.achievements || {})) ach[id] = !ach[id] || String(at) < String(ach[id]) ? at : ach[id];
+  out.achievements = ach;
+
+  const rs = { ...base.stats, ...(remote.stats || {}) }, ls = { ...base.stats, ...(local.stats || {}) };
+  out.stats = {
+    ...rs, ...ls,
+    sessions: Math.max(rs.sessions || 0, ls.sessions || 0),
+    merges: Math.max(rs.merges || 0, ls.merges || 0),
+    websCleared: Math.max(rs.websCleared || 0, ls.websCleared || 0),
+    lessonsDone: { ...(rs.lessonsDone || {}), ...(ls.lessonsDone || {}) },
+  };
+
+  const seen = new Set();
+  const board = [];
+  for (const e of [...(remote.leaderboardLocal || []), ...(local.leaderboardLocal || [])]) {
+    const id = [e.date, e.name, e.score, e.moves, e.seconds].join('|');
+    if (seen.has(id)) continue;
+    seen.add(id); board.push(e);
+  }
+  const days = [...new Set(board.map((e) => e.date))].sort().slice(-14);
+  out.leaderboardLocal = board.filter((e) => days.includes(e.date));
+  return out;
+}
+
 // The platform adapter registers here to mirror saves to the cloud slot.
 let cloudHook = null;
 export function setCloudHook(fn) { cloudHook = fn; }

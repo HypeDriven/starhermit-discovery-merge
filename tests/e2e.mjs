@@ -244,7 +244,8 @@ async function platformPass(browser, vp) {
   const isMobile = vp.name === 'mobile';
   const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, hasTouch: isMobile, isMobile });
   const page = await context.newPage();
-  const errors = [], seen = [];
+  const errors = [], seen = [], bodies = {};
+  let prefLang = null;
   const tag = 'platform-' + vp.name;
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
@@ -259,8 +260,13 @@ async function platformPass(browser, vp) {
   await page.route((url) => PLATFORM_API.test(url.pathname), (route) => {
     const req = route.request(), u = new URL(req.url());
     seen.push(req.method() + ' ' + u.pathname);
-    const json = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
+    if (req.method() !== 'GET') bodies[req.method() + ' ' + u.pathname] = req.postData();
+    const json = (o, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(o) });
     if (u.pathname.endsWith('/profile')) return json({ nickname: 'Pip Tester' });
+    if (u.pathname === '/api/v1/me/language') return json({ preferredLanguage: prefLang });
+    if (u.pathname.includes('/cloud-saves/') && req.method() === 'PUT') return json({ etag: '"v' + seen.length + '"' });
+    if (/\/settings\/ui\.language$/.test(u.pathname) && req.method() === 'PUT') return json({ key: 'ui.language' });
+    if (u.pathname.endsWith('/reports') && req.method() === 'POST') return json({ id: 'r1', kind: 'bug', status: 'open', createdAt: new Date().toISOString() }, 201);
     if (u.pathname.endsWith('/settings') && req.method() === 'GET') return json({ settings: { highContrast: true } });
     if (u.pathname.endsWith('/controls')) return json({ actions: [{ action: 'hint', codes: ['KeyJ'] }] });
     return route.fulfill({ status: 204 });
@@ -291,6 +297,77 @@ async function platformPass(browser, vp) {
       await page.locator('#btn-help').scrollIntoViewIfNeeded();
       await click('#btn-help');
       await page.waitForFunction(() => /J hint/.test(document.getElementById('overlay-root').textContent), null, { timeout: 3000 });
+    });
+    await step('language: Automatic follows the account (fr-CA); Deutsch re-renders and saves ui.language; report a problem', async () => {
+      prefLang = 'fr-CA';
+      await page.goto('about:blank');
+      await page.goto(`http://127.0.0.1:${vp.port}/#game_token=${jwt}`);
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA', null, { timeout: 8000 });
+      if ((await page.locator('#btn-play').textContent()) !== 'Jouer') throw new Error('title not in fr-CA');
+      await click('#btn-settings');
+      const choice = page.locator('[data-game-language="choice"]');
+      await choice.waitFor({ timeout: 5000 });
+      await choice.scrollIntoViewIfNeeded();
+      const auto = await choice.locator('option').first().textContent();
+      if (auto !== 'Automatique — Français (Canada)') throw new Error('Automatic label: ' + auto);
+      await choice.selectOption('de-DE');
+      await page.waitForFunction(() => document.documentElement.lang === 'de-DE');
+      await page.waitForFunction(() => /Im Konto gespeichert/.test(document.querySelector('[data-game-language="status"]').textContent), null, { timeout: 5000 });
+      const de = await page.evaluate(() => ({
+        h: document.querySelector('#overlay-root .dialog h2').textContent,
+        groups: [...document.querySelectorAll('#overlay-root .settings-group > h3')].map((h) => h.textContent),
+        reduced: document.querySelector('#overlay-root input[data-i18n-aria="Reduced motion"]').parentElement.textContent,
+        quality: document.querySelector('#gfx-controls .gfx-row span').textContent,
+        done: document.querySelector('#overlay-root .dialog-actions button').textContent,
+        play: document.getElementById('btn-play').textContent,
+        stillThere: !!document.querySelector('#gfx-controls [data-game-language="choice"]'),
+      }));
+      if (de.h !== 'Einstellungen' || de.groups[1] !== 'Grafik' || de.reduced !== 'Weniger Bewegung' || de.quality !== 'Qualität' ||
+        de.done !== 'Fertig' || de.play !== 'Spielen' || !de.stillThere) throw new Error('not re-rendered: ' + JSON.stringify(de));
+      const saved = bodies['PUT /api/v1/games/discovery-merge/settings/ui.language'];
+      if (!saved || JSON.parse(saved).value.choice !== 'de-DE') throw new Error('ui.language not saved: ' + saved);
+      await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+      await page.fill('[data-game-report="title"]', 'Language test report');
+      await page.locator('[data-game-report="send"]').click();
+      await page.waitForFunction(() => /Danke/.test(document.querySelector('[data-game-report="status"]').textContent), null, { timeout: 5000 });
+      if (JSON.parse(bodies['POST /api/v1/games/discovery-merge/reports'] || '{}').kind !== 'bug') throw new Error('report not posted');
+      await page.screenshot({ path: SHOT('language-de', vp.name) });
+      if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('German settings overflow horizontally');
+      await page.locator('#overlay-root .dialog-actions button').click();
+    });
+    await step('language: switching mid-round re-renders the HUD, board and pause dialog and keeps the round', async () => {
+      await click('#btn-play');
+      await click('[data-mode="practice"]');
+      await page.locator('#setup-body .card-btn').first().click();
+      await page.waitForSelector('#screen-play:not([hidden])');
+      await page.waitForFunction(() => document.getElementById('countdown').hidden, null, { timeout: 5000 });
+      await page.locator('#btn-pause:visible, #btn-pause-m:visible').first().click();
+      await page.locator('#overlay-root .dialog-actions button', { hasText: 'Einstellungen' }).click();
+      const choice = page.locator('[data-game-language="choice"]');
+      await choice.waitFor({ timeout: 5000 });
+      await choice.scrollIntoViewIfNeeded();
+      await choice.selectOption('it-IT');
+      await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+      const it = await page.evaluate(() => ({
+        score: document.querySelector('#score-panel .sub').textContent,
+        cell: document.querySelector('#dom-board .dm-cell').getAttribute('aria-label'),
+        tray: document.getElementById('btn-pause-m').textContent,
+        playing: !document.getElementById('screen-play').hidden,
+      }));
+      if (it.score !== 'punteggio' || !/riga 1, colonna 1/.test(it.cell) || it.tray !== 'Pausa' || !it.playing) {
+        throw new Error('round not re-rendered: ' + JSON.stringify(it));
+      }
+      // The same round continues: pause shows it in Italian, then Automatic (fr-CA) relabels the open dialog.
+      await page.locator('#overlay-root .dialog-actions button', { hasText: 'Fatto' }).click();
+      await page.locator('#btn-pause:visible, #btn-pause-m:visible').first().click();
+      const pause = page.locator('#overlay-root .dialog p').first();
+      if (!/punti finora/.test(await pause.textContent())) throw new Error('pause not in Italian: ' + await pause.textContent());
+      await page.locator('#overlay-root .dialog-actions button', { hasText: 'Impostazioni' }).click();
+      await choice.scrollIntoViewIfNeeded();
+      await choice.selectOption('auto');
+      await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+      if ((await page.locator('#overlay-root .dialog h2').first().textContent()) !== 'Paramètres') throw new Error('settings title not relabelled');
+      await page.locator('#overlay-root .dialog-actions button').first().click();
     });
   } finally {
     await context.close();

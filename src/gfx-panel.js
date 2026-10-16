@@ -1,8 +1,11 @@
 // Settings → Graphics section: preset, render scale, per-effect overrides,
 // adaptive resolution, frame-rate readout and a GPU/cost summary. Strings are
-// localized here (the rest of the game ships en-US only).
+// localized here in the game language (src/i18n.js getLang()); relabel()
+// swaps them in place so the shared option sections mounted in this box
+// survive a language change.
 
 import { el } from './ui.js';
+import { getLang } from './i18n.js';
 import { PRESETS, CATEGORIES, SHADOW_MAP, detectPreset, resolve, presetTier, choosePreset } from './gfx.js';
 
 const EN = {
@@ -105,8 +108,7 @@ export function gfxLocale(tag) {
 }
 
 function strings() {
-  const tag = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
-  return GFX_STRINGS[gfxLocale(tag)];
+  return GFX_STRINGS[getLang()] || GFX_STRINGS[gfxLocale(getLang())];
 }
 
 // One probe context per page: GPU name for Auto and the summary line when no board is live.
@@ -146,7 +148,7 @@ function summaryText(t, r, gpu, px) {
  * ctx: { get() → saved graphics object, set(next) → persist + apply, renderer() → live BoardRenderer|null }
  */
 export function graphicsControls(ctx) {
-  const t = strings();
+  let t = strings();
   const info = () => {
     const live = ctx.renderer();
     const p = probeGpu();
@@ -161,7 +163,12 @@ export function graphicsControls(ctx) {
   };
 
   const box = el('div', { class: 'gfx-controls', id: 'gfx-controls' });
-  const row = (label, control, extra) => el('label', { class: 'gfx-row' }, el('span', {}, label), extra ? el('span', { class: 'gfx-inline' }, control, extra) : control);
+  const labels = []; // [span, () => text]
+  const row = (label, control, extra) => {
+    const span = el('span', {}, label());
+    labels.push([span, label]);
+    return el('label', { class: 'gfx-row' }, span, extra ? el('span', { class: 'gfx-inline' }, control, extra) : control);
+  };
 
   const presetSel = el('select', { id: 'gfx-preset', 'data-gfx': 'preset', 'aria-label': t.quality });
   const scale = el('input', { type: 'range', id: 'gfx-scale', 'data-gfx': 'render_scale', min: 50, max: 200, step: 5, 'aria-label': t.renderScale });
@@ -220,16 +227,29 @@ export function graphicsControls(ctx) {
   showFps.onchange = () => commit({ ...ctx.get(), show_fps: showFps.checked });
 
   box.append(
-    row(t.quality, presetSel),
-    row(t.renderScale, scale, scaleOut),
-    ...Object.keys(CATEGORIES).map((cat) => row(t.cats[cat], catSels[cat])),
-    row(t.adaptive, adaptive),
-    row(t.showFps, showFps),
+    row(() => t.quality, presetSel),
+    row(() => t.renderScale, scale, scaleOut),
+    ...Object.keys(CATEGORIES).map((cat) => row(() => t.cats[cat], catSels[cat])),
+    row(() => t.adaptive, adaptive),
+    row(() => t.showFps, showFps),
     summary,
     postNote,
   );
   refresh();
-  return { el: box, title: t.title, refresh };
+
+  // Language change: new labels, aria-labels and option texts in place.
+  const relabel = () => {
+    t = strings();
+    for (const [span, label] of labels) span.textContent = label();
+    presetSel.setAttribute('aria-label', t.quality);
+    scale.setAttribute('aria-label', t.renderScale);
+    for (const [cat, sel] of Object.entries(catSels)) sel.setAttribute('aria-label', t.cats[cat]);
+    adaptive.setAttribute('aria-label', t.adaptive);
+    showFps.setAttribute('aria-label', t.showFps);
+    postNote.textContent = t.postFailed;
+    refresh();
+  };
+  return { el: box, get title() { return t.title; }, refresh, relabel };
 }
 
 /** Resolved preset for the <body data-gfx-preset> marker. */

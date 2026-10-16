@@ -239,7 +239,11 @@ button.back { margin-top: 1rem; }
 .dialog h2 { margin-top: 0; }
 .dialog .dialog-actions { display: flex; gap: 0.6rem; margin-top: 1rem; flex-wrap: wrap; }
 
-.settings-grid { display: grid; gap: 0.9rem; }
+.settings-grid { display: grid; gap: 0.9rem; grid-template-columns: minmax(0, 1fr); }
+.settings-group { min-width: 0; }
+/* Long compound words (German) hyphenate instead of widening the dialog. */
+.settings-grid label > span, .gfx-controls .gfx-row > span:first-child { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.settings-grid label > input[type="range"] { min-width: 6rem; flex: 0 1 12rem; }
 .settings-grid label { display: flex; align-items: center; justify-content: space-between; gap: 1rem; max-width: 70ch; }
 .settings-grid input[type="range"] { width: 12rem; }
 .settings-grid select { font: inherit; background: var(--panel-2); color: var(--ink); border: 1px solid #4a3d2f; border-radius: 8px; padding: 0.3rem; min-height: 38px; }
