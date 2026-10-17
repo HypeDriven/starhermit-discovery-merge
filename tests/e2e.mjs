@@ -429,6 +429,7 @@ async function runPass(browser, vp) {
         throw new Error('bloom "From preset" label does not follow the High preset');
       }
       if (!/Bloom/.test(await page.textContent('#gfx-summary'))) throw new Error('summary should list bloom at High');
+      if (!/ · Level 0 · /.test(await page.textContent('#gfx-summary'))) throw new Error('summary lacks the hardware level: ' + await page.textContent('#gfx-summary'));
       await page.selectOption('#gfx-bloom', 'off');
       if (/Bloom/.test(await page.textContent('#gfx-summary'))) throw new Error('bloom override not reflected in summary');
       await page.locator('#gfx-show-fps').check();

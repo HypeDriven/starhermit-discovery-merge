@@ -6,13 +6,13 @@
 
 import { el } from './ui.js';
 import { getLang } from './i18n.js';
-import { PRESETS, CATEGORIES, SHADOW_MAP, detectPreset, resolve, presetTier, choosePreset } from './gfx.js';
+import { PRESETS, CATEGORIES, SHADOW_MAP, detectLevel, presetForLevel, resolve, presetTier, choosePreset } from './gfx.js';
 
 const EN = {
   title: 'Graphics', quality: 'Quality', auto: 'Auto (detected: {tier})', fromPreset: 'From preset ({tier})',
   renderScale: 'Render scale', adaptive: 'Adaptive resolution', showFps: 'Show frame rate',
   postFailed: 'Post-processing is unavailable on this device, so the board renders without it.',
-  unknownGpu: 'Unknown GPU',
+  unknownGpu: 'Unknown GPU', level: 'Level {n}',
   presets: { low: 'Low', balanced: 'Balanced', high: 'High', ultra: 'Ultra' },
   cats: {
     shadows: 'Shadows', ao: 'Ambient occlusion', bloom: 'Bloom', grade: 'Color grade', antialias: 'Anti-aliasing',
@@ -25,7 +25,7 @@ const ES = {
   title: 'Gráficos', quality: 'Calidad', auto: 'Automática (detectada: {tier})', fromPreset: 'Del preajuste ({tier})',
   renderScale: 'Escala de renderizado', adaptive: 'Resolución adaptativa', showFps: 'Mostrar fotogramas por segundo',
   postFailed: 'El posprocesado no está disponible en este dispositivo; el tablero se muestra sin él.',
-  unknownGpu: 'GPU desconocida',
+  unknownGpu: 'GPU desconocida', level: 'Nivel {n}',
   presets: { low: 'Baja', balanced: 'Equilibrada', high: 'Alta', ultra: 'Ultra' },
   cats: {
     shadows: 'Sombras', ao: 'Oclusión ambiental', bloom: 'Resplandor', grade: 'Corrección de color', antialias: 'Suavizado de bordes',
@@ -38,7 +38,7 @@ const FR = {
   title: 'Graphismes', quality: 'Qualité', auto: 'Auto (détecté : {tier})', fromPreset: 'Selon le préréglage ({tier})',
   renderScale: 'Échelle de rendu', adaptive: 'Résolution adaptative', showFps: 'Afficher la fréquence d’images',
   postFailed: 'Le post-traitement n’est pas disponible sur cet appareil ; le plateau s’affiche sans lui.',
-  unknownGpu: 'GPU inconnu',
+  unknownGpu: 'GPU inconnu', level: 'Niveau {n}',
   presets: { low: 'Basse', balanced: 'Équilibrée', high: 'Haute', ultra: 'Ultra' },
   cats: {
     shadows: 'Ombres', ao: 'Occlusion ambiante', bloom: 'Lueur', grade: 'Étalonnage des couleurs', antialias: 'Anticrénelage',
@@ -56,7 +56,7 @@ export const GFX_STRINGS = {
     title: 'Grafik', quality: 'Qualität', auto: 'Automatisch (erkannt: {tier})', fromPreset: 'Aus Voreinstellung ({tier})',
     renderScale: 'Renderskalierung', adaptive: 'Adaptive Auflösung', showFps: 'Bildrate anzeigen',
     postFailed: 'Nachbearbeitung ist auf diesem Gerät nicht verfügbar; das Brett wird ohne sie dargestellt.',
-    unknownGpu: 'Unbekannte GPU',
+    unknownGpu: 'Unbekannte GPU', level: 'Stufe {n}',
     presets: { low: 'Niedrig', balanced: 'Ausgewogen', high: 'Hoch', ultra: 'Ultra' },
     cats: {
       shadows: 'Schatten', ao: 'Umgebungsverdeckung', bloom: 'Leuchten', grade: 'Farbkorrektur', antialias: 'Kantenglättung',
@@ -70,7 +70,7 @@ export const GFX_STRINGS = {
     title: 'Gráficos', quality: 'Qualidade', auto: 'Automática (detectada: {tier})', fromPreset: 'Da predefinição ({tier})',
     renderScale: 'Escala de renderização', adaptive: 'Resolução adaptativa', showFps: 'Mostrar taxa de quadros',
     postFailed: 'O pós-processamento não está disponível neste dispositivo; o tabuleiro é exibido sem ele.',
-    unknownGpu: 'GPU desconhecida',
+    unknownGpu: 'GPU desconhecida', level: 'Nível {n}',
     presets: { low: 'Baixa', balanced: 'Equilibrada', high: 'Alta', ultra: 'Ultra' },
     cats: {
       shadows: 'Sombras', ao: 'Oclusão de ambiente', bloom: 'Brilho', grade: 'Correção de cor', antialias: 'Antisserrilhamento',
@@ -82,7 +82,7 @@ export const GFX_STRINGS = {
     title: 'Grafica', quality: 'Qualità', auto: 'Automatica (rilevata: {tier})', fromPreset: 'Dal preset ({tier})',
     renderScale: 'Scala di rendering', adaptive: 'Risoluzione adattiva', showFps: 'Mostra frequenza fotogrammi',
     postFailed: 'Il post-processing non è disponibile su questo dispositivo; il tabellone viene mostrato senza.',
-    unknownGpu: 'GPU sconosciuta',
+    unknownGpu: 'GPU sconosciuta', level: 'Livello {n}',
     presets: { low: 'Bassa', balanced: 'Bilanciata', high: 'Alta', ultra: 'Ultra' },
     cats: {
       shadows: 'Ombre', ao: 'Occlusione ambientale', bloom: 'Bagliore', grade: 'Correzione colore', antialias: 'Antialiasing',
@@ -126,13 +126,17 @@ export function probeGpu() {
     }
   } catch { gpu = ''; }
   const touch = (navigator.maxTouchPoints || 0) > 0 || matchMedia('(pointer: coarse)').matches;
-  probe = { gpu, detected: detectPreset(gpu, touch) };
+  // StarHermit hardware level → Auto preset (SwiftShader = level 0 → Low; phones cap at Balanced).
+  const system = globalThis.StarHermitGpu ? globalThis.StarHermitGpu.detectSystem() : { mobile: touch };
+  const level = detectLevel(gpu, system);
+  probe = { gpu, level, detected: presetForLevel(level) };
   return probe;
 }
 
-function summaryText(t, r, gpu, px) {
+function summaryText(t, r, gpu, px, level = 0) {
   const parts = [
     gpu || t.unknownGpu,
+    (t.level || 'Level {n}').replace('{n}', level),
     r.shadows === 'off' ? `${t.cats.shadows}: ${t.tiers.off}` : `${t.cats.shadows} ${SHADOW_MAP[r.shadows]}²`,
     r.ao !== 'off' ? t.cats.ao + (r.ao === 'high' ? ` (${t.tiers.high})` : '') : null,
     r.bloom === 'on' ? t.cats.bloom : null,
@@ -155,11 +159,11 @@ export function graphicsControls(ctx) {
     const saved = ctx.get();
     if (live?.graphicsInfo) {
       const gi = live.graphicsInfo();
-      return { gpu: gi.gpu || p.gpu, detected: gi.detected, r: gi.resolved, px: gi.pixels[0] ? gi.pixels : null, postFailed: gi.postFailed };
+      return { gpu: gi.gpu || p.gpu, level: gi.level ?? p.level, detected: gi.detected, r: gi.resolved, px: gi.pixels[0] ? gi.pixels : null, postFailed: gi.postFailed };
     }
-    const r = resolve(saved, p.detected);
+    const r = resolve(saved, p.detected, p.level);
     const ratio = Math.min(window.devicePixelRatio || 1, r.dprCap) * r.scale;
-    return { gpu: p.gpu, detected: p.detected, r, px: [Math.round(innerWidth * ratio), Math.round(innerHeight * ratio)], postFailed: false };
+    return { gpu: p.gpu, level: p.level, detected: p.detected, r, px: [Math.round(innerWidth * ratio), Math.round(innerHeight * ratio)], postFailed: false };
   };
 
   const box = el('div', { class: 'gfx-controls', id: 'gfx-controls' });
@@ -202,7 +206,7 @@ export function graphicsControls(ctx) {
     }
     adaptive.checked = saved.adaptive !== false;
     showFps.checked = !!saved.show_fps;
-    summary.textContent = summaryText(t, i.r, i.gpu, i.px);
+    summary.textContent = summaryText(t, i.r, i.gpu, i.px, i.level);
     postNote.hidden = !i.postFailed;
   };
 

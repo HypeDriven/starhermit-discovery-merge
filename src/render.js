@@ -16,7 +16,16 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CHAINS, itemIcon, THEMES } from './content.js';
-import { detectPreset, describe, resolve, SHADOW_MAP } from './gfx.js';
+import { detectLevel, presetForLevel, describe, resolve, SHADOW_MAP } from './gfx.js';
+
+// Run a post pass at a fraction of the frame (per-preset budget). EffectComposer sizes every pass to the
+// full frame in addPass/setSize, so the pass's own setSize is wrapped to apply the scale.
+function atScale(pass, k) {
+  if (!(k > 0 && k < 1)) return pass;
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
+}
 
 const CELL = 1.15;
 const PIECE_Y = 0.22;
@@ -269,7 +278,11 @@ export class BoardRenderer {
     this.renderer.domElement.classList.add('gl-canvas');
     this.gpu = BoardRenderer.gpuName(this.renderer);
     const touch = (navigator.maxTouchPoints || 0) > 0 || matchMedia('(pointer: coarse)').matches;
-    this.detected = detectPreset(this.gpu, touch);
+    // StarHermit hardware level → Auto preset (SwiftShader = level 0 → Low; phones cap at Balanced).
+    // (`this.level` is the puzzle level, so the GPU's is `hwLevel`.)
+    this.hwLevel = detectLevel(this.gpu, globalThis.StarHermitGpu ? globalThis.StarHermitGpu.detectSystem() : { mobile: touch });
+    this.detected = presetForLevel(this.hwLevel);
+    this.q = resolve(this.settings.graphics, this.detected, this.hwLevel);
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
@@ -304,19 +317,7 @@ export class BoardRenderer {
     this.hintRing.visible = false;
     this.scene.add(this.hintRing);
 
-    // Shared geometries: plain (boxes) and detailed (rounded, bevelled) sets.
-    this.geos = {
-      plain: {
-        piece: new THREE.BoxGeometry(0.72, 0.4, 0.72),
-        cell: new THREE.BoxGeometry(1.02, 0.14, 1.02),
-        crate: new THREE.BoxGeometry(0.8, 0.62, 0.8),
-      },
-      detailed: {
-        piece: new RoundedBoxGeometry(0.72, 0.4, 0.72, 4, 0.09),
-        cell: new RoundedBoxGeometry(1.02, 0.14, 1.02, 2, 0.045),
-        crate: new RoundedBoxGeometry(0.8, 0.62, 0.8, 2, 0.04),
-      },
-    };
+    this._makeGeos();
     this.genGeo = new THREE.CylinderGeometry(0.42, 0.52, 0.34, 32);
     this._sharedGeos = new Set([this.genGeo, ...Object.values(this.geos.plain), ...Object.values(this.geos.detailed)]);
 
@@ -335,15 +336,40 @@ export class BoardRenderer {
     return true;
   }
 
+  // Shared geometries: plain (boxes) and detailed (rounded, bevelled; segments per preset budget) sets.
+  _makeGeos() {
+    const n = this.q.budget.pieceSegs;
+    for (const set of Object.values(this.geos || {})) for (const geo of Object.values(set)) { this._sharedGeos?.delete(geo); geo.dispose(); }
+    this.geos = {
+      plain: {
+        piece: new THREE.BoxGeometry(0.72, 0.4, 0.72),
+        cell: new THREE.BoxGeometry(1.02, 0.14, 1.02),
+        crate: new THREE.BoxGeometry(0.8, 0.62, 0.8),
+      },
+      detailed: {
+        piece: new RoundedBoxGeometry(0.72, 0.4, 0.72, n, 0.09),
+        cell: new RoundedBoxGeometry(1.02, 0.14, 1.02, Math.max(1, Math.round(n / 2)), 0.045),
+        crate: new RoundedBoxGeometry(0.8, 0.62, 0.8, Math.max(1, Math.round(n / 2)), 0.04),
+      },
+    };
+    if (this._sharedGeos) for (const set of Object.values(this.geos)) for (const geo of Object.values(set)) this._sharedGeos.add(geo);
+    this._geoSegs = n;
+  }
+
   get detail() { return this.q?.detail === 'detailed'; }
 
   _motionOff() {
     return !!this.settings.reducedMotion || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
-  // Standard material with a restrained environment-reflection strength.
-  _std(params, env = 0.35) {
-    const m = new THREE.MeshStandardMaterial(params);
+  // Lit material with a restrained environment-reflection strength, in the preset budget's class:
+  // Lambert on Low, Standard on Balanced, Physical (clearcoat) on High/Ultra where `physical` is asked for.
+  _std(params, env = 0.35, physical = false) {
+    const kind = this.q?.budget?.material || 'standard';
+    const { roughness, metalness, clearcoat, clearcoatRoughness, ...rest } = params;
+    if (kind === 'lambert') return new THREE.MeshLambertMaterial(rest);
+    const m = kind === 'physical' && physical ? new THREE.MeshPhysicalMaterial(params)
+      : new THREE.MeshStandardMaterial({ ...rest, ...(roughness != null ? { roughness } : {}), ...(metalness != null ? { metalness } : {}) });
     m.envMapIntensity = env;
     return m;
   }
@@ -387,7 +413,8 @@ export class BoardRenderer {
 
   burst(worldPos, color = 0xffe9a8) {
     if (this.settings.reducedMotion) return;
-    const cap = this.q?.particles === 'high' ? 40 : 18;
+    const b = this.q?.budget?.burst ?? 40; // per-preset spark budget
+    const cap = this.q?.particles === 'high' ? b : Math.min(18, b);
     this.points.material.color.setHex(color);
     this.points.material.size = this.q?.particles === 'high' ? 0.08 : 0.07;
     this.points.visible = true;
@@ -413,10 +440,14 @@ export class BoardRenderer {
     const key = JSON.stringify(saved || {}) + '|' + !!this.settings.reducedMotion;
     if (key === this._gfxKey) return;
     this._gfxKey = key;
-    const prevDetail = this.q?.detail;
+    const prevDetail = this._builtDetail;
     const prevReflections = this.q?.reflections;
-    const g = resolve(saved, this.detected);
+    const pb = this._builtBudget || {};
+    const g = resolve(saved, this.detected, this.hwLevel);
     this.q = g;
+    // Asset variants (material class, rounded-box and prop segments) are built into the meshes.
+    const assets = ['material', 'pieceSegs', 'propSegs'].some((k) => pb[k] !== g.budget[k]);
+    if (this._geoSegs !== g.budget.pieceSegs) this._makeGeos();
 
     const size = SHADOW_MAP[g.shadows];
     const shadowsChanged = this.renderer.shadowMap.enabled !== size > 0;
@@ -447,7 +478,10 @@ export class BoardRenderer {
     this.postFailed = false;
     this._fpsVisible(g.showFps);
 
-    if (this.level && prevDetail && prevDetail !== g.detail) this._rebuildAll();
+    const rebuild = this.level && prevDetail && (prevDetail !== g.detail || assets);
+    this._builtDetail = g.detail;
+    this._builtBudget = g.budget;
+    if (rebuild) this._rebuildAll();
     else if (shadowsChanged || prevReflections !== g.reflections) {
       // Materials pick up shadow-map / environment changes on recompile.
       this.scene.traverse((o) => {
@@ -462,6 +496,7 @@ export class BoardRenderer {
     const px = [Math.round(this.size[0] * this.pixelRatio), Math.round(this.size[1] * this.pixelRatio)];
     return {
       gpu: this.gpu || '',
+      level: this.hwLevel,
       detected: this.detected,
       resolved: this.q,
       summary: describe(this.q, px[0] ? px : null),
@@ -502,7 +537,7 @@ export class BoardRenderer {
       composer.setSize(w, h);
       composer.addPass(new RenderPass(this.scene, this.camera));
       if (g.ao !== 'off') {
-        const ao = new GTAOPass(this.scene, this.camera, pw, ph);
+        const ao = atScale(new GTAOPass(this.scene, this.camera, pw, ph), g.budget.aoRes);
         ao.output = GTAOPass.OUTPUT.Default;
         ao.blendIntensity = 0.75;
         ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: g.ao === 'high' ? 16 : 8 });
@@ -511,7 +546,7 @@ export class BoardRenderer {
       }
       if (g.bloom === 'on') {
         // High threshold: only emissive gems, lamp glass and bright highlights bloom.
-        composer.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.38, 0.45, 0.92));
+        composer.addPass(atScale(new UnrealBloomPass(new THREE.Vector2(w, h), 0.38, 0.45, 0.92), g.budget.bloomRes));
       }
       composer.addPass(new OutputPass());
       if (g.grade === 'on') composer.addPass(new ShaderPass(GradeShader));
@@ -685,13 +720,14 @@ export class BoardRenderer {
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
       const g = new THREE.Group();
-      const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.8, d ? 20 : 10), pedMat);
+      const ps = this.q.budget.propSegs; // prop LOD per preset
+      const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.8, d ? ps : Math.min(10, ps)), pedMat);
       ped.position.y = 0;
       ped.castShadow = d;
       ped.receiveShadow = d;
       const shape = i % 3 === 0
         ? new THREE.IcosahedronGeometry(0.28, 0)
-        : i % 3 === 1 ? new THREE.ConeGeometry(0.22, 0.55, 8) : new THREE.TorusKnotGeometry(0.16, 0.06, 64, 10);
+        : i % 3 === 1 ? new THREE.ConeGeometry(0.22, 0.55, 8) : new THREE.TorusKnotGeometry(0.16, 0.06, ps * 3, Math.max(6, Math.round(ps / 2)));
       const art = new THREE.Mesh(shape, propMat);
       art.position.y = 0.75;
       art.castShadow = true;
@@ -761,15 +797,14 @@ export class BoardRenderer {
       const hc = this.settings.highContrast;
       const color = new THREE.Color(CHAINS[item.chain].color);
       const mat = d
-        ? new THREE.MeshPhysicalMaterial({
+        ? this._std({
           color, roughness: 0.5, metalness: 0.0, clearcoat: 0.55, clearcoatRoughness: 0.22,
           emissive: color, emissiveIntensity: hc ? 0.25 : 0.05,
-        })
-        : new THREE.MeshStandardMaterial({
+        }, 0.22, true)
+        : this._std({
           color, roughness: 0.55, metalness: 0.15,
           emissive: color, emissiveIntensity: hc ? 0.25 : 0.08,
-        });
-      mat.envMapIntensity = 0.22;
+        }, 0.22);
       const body = new THREE.Mesh(geos.piece, mat);
       body.castShadow = true;
       body.position.y = PIECE_Y;
@@ -1118,7 +1153,9 @@ export class BoardRenderer {
     this.motes.visible = this.q.particles === 'high' && !still && !!this.level;
     if (this.motes.visible) {
       const pos = this.motes.geometry.attributes.position;
-      for (let i = 0; i < MOTES; i++) {
+      const n = Math.min(MOTES, this.q.budget.motes);
+      this.motes.geometry.setDrawRange(0, n);
+      for (let i = 0; i < n; i++) {
         const sd = this.moteSeeds[i];
         let y = pos.getY(i) + dt * (0.06 + (sd % 1) * 0.05);
         if (y > 3.6) y = 0.3;

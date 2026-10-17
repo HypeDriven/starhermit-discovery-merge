@@ -1,19 +1,48 @@
 // Graphics quality model (src/gfx.js): detection, resolution, overrides.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectPreset, resolve, presetTier, choosePreset, describe, fromLegacyQuality, PRESETS, CATEGORIES } from '../src/gfx.js';
+import '../gpu-level.js';
+import { detectPreset, detectLevel, presetForLevel, budgetFor, BUDGETS, resolve, presetTier, choosePreset, describe, fromLegacyQuality, PRESETS, CATEGORIES } from '../src/gfx.js';
 
-test('detectPreset maps GPU strings to tiers', () => {
-  assert.equal(detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)'), 'low');
-  assert.equal(detectPreset('llvmpipe (LLVM 15.0.7, 256 bits)'), 'low');
-  assert.equal(detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0, D3D11)'), 'high');
-  assert.equal(detectPreset('Apple M2'), 'high');
-  assert.equal(detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)'), 'balanced');
-  assert.equal(detectPreset('Adreno (TM) 650'), 'balanced');
-  assert.equal(detectPreset(''), 'balanced');
-  // Touch devices cap Auto at balanced.
-  assert.equal(detectPreset('Apple M2', true), 'balanced');
-  assert.equal(detectPreset('SwiftShader', true), 'low');
+const desk = { webgl: true, webgl2: true, cores: 8, memoryGb: 8 };
+const phone = { webgl: true, webgl2: true, mobile: true, cores: 8, memoryGb: 8 };
+
+test('hardware level → preset: Low 0, Balanced 4, High 10, Ultra 17', () => {
+  assert.equal(detectPreset('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)', desk), 'low');
+  assert.equal(detectLevel('llvmpipe (LLVM 15.0.7, 256 bits)', desk), 0);
+  assert.equal(detectPreset('ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11 vs_5_0 ps_5_0)', desk), 'low');
+  assert.equal(detectPreset('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11)', desk), 'low');
+  assert.equal(detectPreset('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11)', desk), 'balanced');
+  assert.equal(detectPreset('ANGLE (NVIDIA, NVIDIA GeForce GTX 1070 Direct3D11 vs_5_0 ps_5_0)', desk), 'high');
+  assert.equal(detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0)', desk), 'ultra');
+  assert.equal(detectLevel('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)', desk), 20);
+  assert.equal(detectPreset('ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 Direct3D11 vs_5_0 ps_5_0)', desk), 'ultra');
+  assert.equal(detectPreset('', desk), 'balanced');
+  assert.equal(presetForLevel(3), 'low');
+  assert.equal(presetForLevel(16), 'high');
+});
+
+test('phones and tablets are capped at Balanced; software GPUs stay Low', () => {
+  assert.equal(detectPreset('Adreno (TM) 740', phone), 'balanced');
+  assert.ok(detectLevel('Adreno (TM) 740', phone) <= 9);
+  assert.equal(detectPreset('NVIDIA GeForce RTX 5090', phone), 'balanced');
+  assert.equal(detectPreset('Mali-G77', phone), 'low');
+  assert.equal(detectPreset('SwiftShader', phone), 'low');
+});
+
+test('every preset has an explicit budget that grows from Low to Ultra and scales with the level', () => {
+  const order = ['low', 'balanced', 'high', 'ultra'];
+  const keys = ['material', 'pieceSegs', 'propSegs', 'burst', 'motes', 'bloomRes', 'aoRes'];
+  const mats = ['lambert', 'standard', 'physical'];
+  for (const p of order) for (const k of keys) assert.ok(BUDGETS[p][k] != null, `${p}.${k}`);
+  for (let i = 1; i < order.length; i++) {
+    for (const k of keys) if (typeof BUDGETS.low[k] === 'number') assert.ok(BUDGETS[order[i]][k] >= BUDGETS[order[i - 1]][k], `${order[i]}.${k}`);
+    assert.ok(mats.indexOf(BUDGETS[order[i]].material) >= mats.indexOf(BUDGETS[order[i - 1]].material));
+  }
+  assert.deepEqual(resolve({ preset: 'ultra' }, 'low', 0).budget, resolve({ preset: 'ultra' }, 'ultra', 17).budget);
+  assert.ok(budgetFor('low', 3).motes > budgetFor('low', 0).motes, 'counts scale up with the level');
+  assert.ok(budgetFor('low', 20).burst <= 4 * BUDGETS.low.burst, 'never more than 4×');
+  assert.equal(resolve({ preset: 'balanced' }, 'low').scale, 0.9);
 });
 
 test('resolve: auto uses the detected preset, explicit preset wins', () => {
