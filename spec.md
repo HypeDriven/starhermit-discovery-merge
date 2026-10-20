@@ -124,7 +124,7 @@ Score desc → fewer invalid actions → lower server-derived elapsed seconds �
 
 ### Undo and hints
 
-Undo (`GameSession.undo`) pops a serialized pre-command state; allowed only when `allowUndo` (Practice and Learn), never enters the log, capped at 200 entries. Hint (`GameSession.hint`) priority: first legal delivery → highest-tier merge → first tap; shown for 2.6 s as a ring in 3D and a dashed outline in 2D, announced as text, with the `hint` cue.
+Undo (`GameSession.undo`) pops a serialized pre-command state; allowed only when `allowUndo` (Practice and Learn), never enters the log, capped at 200 entries. Hint (`GameSession.hint`) priority: first legal delivery → highest-tier merge → first tap; shown for 2.6 s as a ring in 3D and a dashed outline in 2D (toggled on the existing cells, never by redrawing them, so a cell pressed as the hint ends still gets its click), announced as text, with the `hint` cue.
 
 ## 5. Modes and progression
 

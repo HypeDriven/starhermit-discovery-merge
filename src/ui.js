@@ -244,7 +244,10 @@ export class DomBoard {
       if (hint.kind === 'merge') { this.hintCells.add(hint.from); this.hintCells.add(hint.to); }
       else if (hint.cell !== undefined) this.hintCells.add(hint.cell);
     }
-    if (this.state) this.render(this.state, this.selected);
+    // Only the hint marks change, so toggle them in place: render() replaces
+    // every cell's icon, and a press on an icon replaced before the release
+    // (the hint clears on a timer) loses its click.
+    this.buttons.forEach((b, i) => b.classList.toggle('hint', this.hintCells.has(i)));
   }
 }
 
