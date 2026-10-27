@@ -1,12 +1,18 @@
 {
   "name": "discovery-merge",
   "version": "1.0.0",
-  "description": "Combine identical objects to unlock a branching discovery chain and restore themed scenes.",
+  "private": true,
+  "description": "Discovery Merge \u2014 merge discoveries and restore an explorer's cabinet, on the StarHermit engine.",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test tests/*.test.mjs",
-    "test:e2e": "node tests/e2e.mjs"
+    "test": "npm run test:unit && npm run test:native",
+    "test:unit": "node --test tests/rules.test.mjs tests/i18n.test.mjs tests/save.test.mjs tests/score-script.test.mjs",
+    "test:native": "node tests/native.mjs",
+    "test:browser": "node tools/browser-play.mjs .",
+    "package": "node tools/package-web.mjs",
+    "css": "node tools/css.mjs",
+    "plays": "node tools/gen-plays.mjs",
+    "score-script": "node tools/build-score-script.mjs"
   },
   "license": "PolyForm-Noncommercial-1.0.0",
   "devDependencies": {

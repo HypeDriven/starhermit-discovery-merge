@@ -188,7 +188,8 @@ export function guestId() {
   try {
     let id = localStorage.getItem(GUEST_KEY);
     if (!id) {
-      id = 'guest-' + crypto.getRandomValues(new Uint32Array(2)).join('-');
+      // Two random 32-bit words (Math.random: the engine's native interpreter has no crypto).
+      id = 'guest-' + [0, 1].map(() => Math.floor(Math.random() * 4294967296)).join('-');
       localStorage.setItem(GUEST_KEY, id);
     }
     return id;

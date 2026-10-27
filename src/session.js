@@ -9,6 +9,14 @@ import {
 
 let cmdSeq = 0;
 
+// The session's clock in ms: performance.now in a browser and in node; the
+// engine client points it at its fixed steps (native/main.ts), so pauses,
+// hidden windows and slow frames never cost time and play scripts replay
+// exactly.
+export const clock = {
+  now: () => (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+};
+
 export class GameSession {
   // opts: { allowUndo, onEvents(events, state), onStateChange(state) }
   constructor(level, opts = {}) {
@@ -25,24 +33,24 @@ export class GameSession {
     this.initialHash = stateHash(this.state);
   }
 
-  start(now = performance.now()) {
+  start(now = clock.now()) {
     this.startedAt = now;
   }
 
-  pause(now = performance.now()) {
+  pause(now = clock.now()) {
     if (this.paused || this.startedAt === null) return;
     this.activeMs += now - this.startedAt;
     this.startedAt = null;
     this.paused = true;
   }
 
-  resume(now = performance.now()) {
+  resume(now = clock.now()) {
     if (!this.paused) return;
     this.startedAt = now;
     this.paused = false;
   }
 
-  elapsedSeconds(now = performance.now()) {
+  elapsedSeconds(now = clock.now()) {
     let ms = this.activeMs;
     if (this.startedAt !== null) ms += now - this.startedAt;
     return Math.round(ms / 1000);
@@ -154,7 +162,7 @@ export class GameSession {
       level: this.level,
       state: serialize(this.state),
       log: this.log,
-      activeMs: this.activeMs + (this.startedAt !== null ? performance.now() - this.startedAt : 0),
+      activeMs: this.activeMs + (this.startedAt !== null ? clock.now() - this.startedAt : 0),
       finished: this.finished,
     });
   }

@@ -1,0 +1,40 @@
+# Settings › Use 2D board, then a Practice board on it by clicks: a Field Kit tap, Undo, Hint,
+# Escape pauses, Leave round, and the title's Resume paused board restores the board.
+until 300 Discovery Merge
+frames 30
+click =Settings
+until 60 Left-handed layout
+frames 10
+click Use 2D board
+frames 10
+save settings
+click =Done
+frames 10
+click =Play
+until 60 Choose a mode
+frames 10
+click Practice
+until 60 Undo allowed
+frames 10
+click =Easy
+until 120 =Ready
+frames 150
+click Field Kit generator for
+frames 30
+save board2d
+click =Undo
+frames 20
+click =Hint
+frames 20
+key Escape 1
+until 60 =Paused
+frames 10
+save paused
+click =Leave round
+until 60 Resume paused board
+frames 10
+click Resume paused board
+until 120 =Ready
+frames 120
+expect Board restored.
+save restored

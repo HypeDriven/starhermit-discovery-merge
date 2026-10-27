@@ -1,0 +1,61 @@
+# The dialogs and screens: Help, Codex, Curator Profile, Daily Cabinet's set-up, Score Chase, Challenges,
+# and a Journey round paused by its tray button with Help over the pause menu.
+until 300 Discovery Merge
+frames 30
+click =Help
+until 60 Merge identical pieces
+frames 10
+save help
+click =Close
+frames 10
+click =Codex
+until 60 Discovery Codex
+frames 10
+save codex
+key Escape 1
+frames 10
+click Curator Profile
+until 60 Lifetime
+frames 10
+save profile
+click =Close
+frames 10
+click Daily Cabinet
+until 60 Today’s cabinet is unclaimed
+frames 10
+save daily
+click =Back
+until 60 Choose a mode
+frames 10
+click Score Chase
+until 60 Daily board for
+frames 10
+save scores
+click =Back
+until 60 Choose a mode
+frames 10
+click Challenge
+until 60 Constrained goals
+frames 10
+click Frugal Hands
+until 60 actions max
+frames 10
+click =Start
+until 120 =Ready
+frames 120
+touch Field Kit generator for
+frames 30
+click =Pause
+until 60 =Paused
+frames 10
+click =Help #2
+until 60 Merge identical pieces
+frames 10
+click =Close
+until 60 =Paused
+frames 10
+click =Resume
+frames 10
+click =Score
+frames 10
+save drawer

@@ -1,0 +1,148 @@
+/* Discovery Merge — the browser build's css/style.css rewritten class-based
+   for the engine's UI (`npm run css` converts it into assets/ui-style.json).
+   Element selectors, ids, attribute selectors and @media do not convert:
+   every widget names its classes and the breakpoints are layouts picked in
+   native/screens.ts. High contrast (the old body.high-contrast palette),
+   larger text and reduced motion are the runtime's options; native/style.ts
+   swaps the tokens. The serif face is the theme's (ui.setFont serif). */
+
+:root {
+  --bg: #171310;
+  --panel: #241d17;
+  --panel-2: #2e251d;
+  --ink: #f2e9da;
+  --ink-dim: #c4b6a2;
+  --accent: #e0a458;
+  --accent-2: #8ecfff;
+  --danger: #ff7a6b;
+  --ok: #9fe08a;
+  --line: #4a3d2f;
+  --line-soft: #3a2f24;
+}
+
+* { box-sizing: border-box; }
+
+.body { color: var(--ink); font-size: 16px; }
+.dim { color: var(--ink-dim); font-size: 16px; }
+.small { color: var(--ink-dim); font-size: 13.6px; }
+.tiny { color: var(--ink-dim); font-size: 12.8px; }
+.h2 { color: var(--ink); font-size: 24px; font-weight: 700; }
+.h3 { color: var(--ink); font-size: 18.7px; font-weight: 700; }
+.h3-accent { color: var(--accent); font-size: 18.7px; font-weight: 700; }
+.group-title { color: var(--accent); font-size: 16px; font-weight: 700; }
+.brand { color: var(--ink); font-size: 18.4px; font-weight: 700; letter-spacing: 0.7px; }
+.status { color: var(--ink-dim); font-size: 13.6px; }
+.big-num { color: var(--ink); font-size: 24px; font-weight: 700; }
+.countdown { color: var(--accent); font-size: 96px; font-weight: 700; text-shadow: 0 4px 24px #00000099; }
+
+/* ------------------------------------------------------------- panels */
+.topbar { background: var(--panel); border-bottom: 1px solid var(--line-soft); padding: 6px 12px; }
+.rail { background: var(--panel); padding: 14px; }
+.drawer { background: var(--panel); padding: 14px; box-shadow: 0 0 30px #00000080; }
+.tray { background: var(--panel); border-top: 1px solid var(--line-soft); padding: 8px; }
+.panel-box { background: var(--panel-2); border-radius: 12px; padding: 10px 13px; }
+.request-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 11px; }
+.request-done { background: var(--panel-2); border: 1px solid var(--ok); border-radius: 12px; padding: 10px 11px; opacity: 0.75; }
+.request-hot { background: var(--panel-2); border: 2px solid var(--accent-2); border-radius: 12px; padding: 9px 10px; }
+.need { background: var(--panel); border-radius: 8px; padding: 4px 8px; }
+.need-met { background: var(--panel); border: 1px solid var(--ok); border-radius: 8px; padding: 3px 7px; }
+.tutorial { background: #1d2a38; border: 1px solid var(--accent-2); border-radius: 12px; padding: 11px; }
+.settings-group { border: 1px solid var(--line-soft); border-radius: 12px; padding: 13px 16px; }
+.dialog-card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 19px 22px; }
+.results-row { border-bottom: 1px solid var(--line); padding: 3px 0; }
+.results-total { padding: 3px 0; }
+.total { color: var(--ink); font-size: 19.2px; font-weight: 700; }
+.headline-won { color: var(--ok); font-size: 25.6px; }
+.headline-lost { color: var(--danger); font-size: 25.6px; }
+.achievement { color: var(--accent); font-size: 16px; }
+.board-head { color: var(--ink); font-size: 16px; font-weight: 700; }
+.board-row { border-bottom: 1px solid var(--line-soft); padding: 5px 0; }
+.board-me { color: var(--accent); font-size: 16px; font-weight: 700; }
+.codex-tier { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+.ranked { color: var(--accent-2); border: 1px solid var(--accent-2); border-radius: 999px; padding: 1px 10px; font-size: 14.4px; }
+.unranked { color: var(--ink-dim); border: 1px solid var(--ink-dim); border-radius: 999px; padding: 1px 10px; font-size: 14.4px; }
+.toast { background: var(--panel-2); border: 1px solid var(--accent); border-radius: 19px; padding: 7px 18px; color: var(--ink); font-size: 16px; }
+.toast-err { background: var(--panel-2); border: 1px solid var(--danger); border-radius: 19px; padding: 7px 18px; color: var(--ink); font-size: 16px; }
+.art { border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px #0000008c; }
+
+/* ------------------------------------------------------------- buttons */
+.btn {
+  min-height: 44px; min-width: 44px; padding: 9px 16px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel-2); color: var(--ink); font-size: 16px; text-align: center;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; }
+.btn:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.ghost {
+  min-height: 44px; min-width: 44px; padding: 9px 16px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: transparent; color: var(--ink); font-size: 16px; text-align: center;
+}
+.ghost:hover { border-color: var(--accent); }
+.ghost:disabled { opacity: 0.45; }
+.ghost:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.top-btn {
+  min-height: 38px; min-width: 44px; padding: 5px 11px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: transparent; color: var(--ink); font-size: 16px; text-align: center;
+}
+.top-btn:hover { border-color: var(--accent); }
+.top-btn:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.primary {
+  min-height: 44px; min-width: 44px; padding: 9px 16px;
+  border: 1px solid transparent; border-radius: 12px;
+  background: var(--accent); color: #241a0c; font-size: 16px; font-weight: 700; text-align: center;
+}
+.primary:hover { background: #ecb46c; }
+.primary:disabled { opacity: 0.45; }
+.primary:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.big { font-size: 21.6px; padding: 14px 48px; }
+.card-btn {
+  min-height: 44px; padding: 13px 18px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel-2); color: var(--ink); font-size: 16px; text-align: left;
+}
+.card-btn:hover { border-color: var(--accent); }
+.card-btn:disabled { opacity: 0.45; }
+.card-btn:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.stage-btn {
+  min-height: 44px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel-2); color: var(--ink); font-size: 14.4px; text-align: center;
+}
+.stage-btn:hover { border-color: var(--accent); }
+.stage-btn:disabled { opacity: 0.4; }
+.stage-btn:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.stage-mastery {
+  min-height: 44px; padding: 10px;
+  border: 1px solid var(--accent-2); border-radius: 12px;
+  background: var(--panel-2); color: var(--ink); font-size: 14.4px; text-align: center;
+}
+.stage-mastery:hover { border-color: var(--accent); }
+.stage-mastery:disabled { opacity: 0.4; }
+.stage-mastery:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.stage-done {
+  min-height: 44px; padding: 10px;
+  border: 1px solid var(--ok); border-radius: 12px;
+  background: var(--panel-2); color: var(--ink); font-size: 14.4px; text-align: center;
+}
+.stage-done:hover { border-color: var(--accent); }
+.stage-done:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.card-title { color: var(--ink); font-size: 16px; font-weight: 700; }
+.card-sub { color: var(--ink-dim); font-size: 13.6px; }
+.stars { color: var(--accent); font-size: 14.4px; }
+.small-btn {
+  min-height: 38px; padding: 5px 13px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel-2); color: var(--ink); font-size: 14.4px; text-align: center;
+}
+.small-btn:hover { border-color: var(--accent); }
+.small-btn:disabled { opacity: 0.45; }
+.small-btn:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+
+/* ------------------------------------------------------------- 2D board */
+.dm-cell { background: #2b231b; border: 1px solid #463a2c; border-radius: 10px; }
+.dm-cell-alt { background: #312820; border: 1px solid #463a2c; border-radius: 10px; }
+.dm-cell-gen { background: #2b231b; border: 2px solid var(--accent); border-radius: 10px; }
+.dm-cell-crate { background: #241c14; border: 1px solid #463a2c; border-radius: 10px; }

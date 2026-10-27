@@ -9,7 +9,7 @@ const ROOT = new URL('..', import.meta.url).pathname;
 function files(dir) {
   return readdirSync(dir).flatMap((f) => {
     const p = join(dir, f);
-    return statSync(p).isDirectory() ? (f === 'locales' ? [] : files(p)) : p.endsWith('.js') ? [p] : [];
+    return statSync(p).isDirectory() ? (f === 'locales' ? [] : files(p)) : /\.(js|ts)$/.test(p) ? [p] : [];
   });
 }
 
@@ -19,13 +19,11 @@ export function sourceKeys() {
   const keys = new Set();
   // Ternary keys are wrapped in N('…') at the call site, so plain calls cover them.
   const call = /(?<![\w.$])(?:T|N)\(\s*(?:'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)")/g;
-  for (const f of files(join(ROOT, 'src'))) {
-    if (f.endsWith('i18n.js')) continue;
+  for (const f of [...files(join(ROOT, 'src')), ...files(join(ROOT, 'native'))]) {
+    if (f.endsWith('i18n.js') || f.endsWith('i18n.ts')) continue;
     const src = readFileSync(f, 'utf8');
     for (const m of src.matchAll(call)) keys.add(unescape(m[1] ?? m[2]));
   }
-  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
-  for (const m of html.matchAll(/data-i18n(?:-aria|-title)?="([^"]+)"/g)) keys.add(m[1]);
   return keys;
 }
 
