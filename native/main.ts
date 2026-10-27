@@ -12,8 +12,8 @@
 // move, Deliver on a request card, or drag), the lessons' gating, the event
 // presentation (a sound, an announcement and the board's animation per rules
 // event), Undo (Practice and Learn), Hint and the camera reset, progression,
-// achievements, the device's daily board, posting a ranked round through
-// score-script.js and the lifecycle (a hidden window pauses the round and
+// achievements, the device's daily board, posting Journey, Daily and
+// Challenge totals through score-script.js and the lifecycle (a hidden window pauses the round and
 // saves the snapshot, as the browser build's visibilitychange did). The
 // screens and HUD are drawn by screens.ts (starhermit:ui), the cabinet by
 // render.ts (starhermit:scene).
@@ -545,15 +545,13 @@ function checkAchievements(session: Session, won: boolean): { id: string; name: 
   persist();
   return got;
 }
-/** Signed in: Journey, Daily and Challenge rounds go to score-script.js, which replays them and posts its own score. */
+/** Signed in: Journey, Daily and Challenge totals go to the high-score board through score-script.js (src/main.js postToLeaderboard). */
 function postToLeaderboard(r: Round, res: Results): void {
   app.lb = null;
   if (!platform.signedIn() || (r.mode !== "journey" && r.mode !== "daily" && r.mode !== "challenge")) return;
-  const ref = r.mode === "journey" ? r.journeyIndex! : r.mode === "daily" ? String(r.level.id).replace(/^daily-/, "") : String(r.level.id).replace(/^challenge-/, "");
   app.lb = "posting";
   const results = app.results;
-  void platform.postLeaderboard({ mode: r.mode, ref, commands: r.session.log.map((l) => l.cmd), elapsedSeconds: res.elapsedSeconds })
-    .then((p) => { if (app.results === results) app.lb = p; });
+  void platform.postLeaderboard(res.total).then((p) => { if (app.results === results) app.lb = p; });
 }
 export function leaderboardLine(): string | null {
   const lb = app.lb;

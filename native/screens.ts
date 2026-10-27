@@ -503,10 +503,11 @@ function playScreen(L: Layout, top: number): void {
     if (tutorialLine()) {
       const lw = Math.min(L.lw - 16, 640);
       const b = ui.place("lesson-banner", { anchor: "top-start", x: (L.lw - lw) / 2, y: top + 8 }, () => lessonPanel(lw), { width: lw });
-      y0 = top + 16 + b.height / sc;
+      const bh = b.height / sc;
+      y0 = top + 16 + (Number.isFinite(bh) ? bh : 0);
     }
   }
-  const pw = Math.max(40, x1 - x0), ph = Math.max(40, y1 - y0);
+  const pw = Math.max(40, x1 - x0 || 0), ph = Math.max(40, y1 - y0 || 0);
   const X = (L.ox + x0) * sc, Y = (L.oy + y0) * sc, Wd = pw * sc, Hd = ph * sc;
   if (options.domBoard) {
     render.setActive(false);
@@ -516,10 +517,11 @@ function playScreen(L: Layout, top: number): void {
     render.setActive(true);
     render.setPlayfield(X, Y, Wd, Hd, f.width, f.height);
     // The page around the playfield (the cabinet fills the window behind the UI).
-    draw.rect(0, 0, f.width, Y, P.bg);
-    draw.rect(0, Y + Hd, f.width, f.height - Y - Hd, P.bg);
-    draw.rect(0, Y, X, Hd, P.bg);
-    draw.rect(X + Wd, Y, f.width - X - Wd, Hd, P.bg);
+    const band = (x: number, y: number, w: number, h: number): void => { if (w > 0.5 && h > 0.5) draw.rect(x, y, w, h, P.bg); };
+    band(0, 0, f.width, Y);
+    band(0, Y + Hd, f.width, f.height - Y - Hd);
+    band(0, Y, X, Hd);
+    band(X + Wd, Y, f.width - X - Wd, Hd);
     cellTargets();
   }
   // Compact layouts: the rails as drawers over the board (left: requests, right: status).
@@ -530,7 +532,9 @@ function playScreen(L: Layout, top: number): void {
     app.drawerRect = { x: d.x, y: d.y, w: d.width, h: d.height };
   }
   const cd = countdownText();
-  if (cd) ui.place("countdown", { anchor: "top-start", x: x0, y: y0 }, () => ui.column("cd-col", () => ui.style("countdown").id("countdown").label(cd), { width: pw, height: ph, align: "center", justify: "center" }));
+  // Workaround (engine 1.16.4, web): a glyph taller than about 256 window pixels is left out of the
+  // overlay ("not valid"), so the 96 px countdown is capped at 240 window pixels on high-DPI phones.
+  if (cd) ui.place("countdown", { anchor: "top-start", x: x0, y: y0 }, () => ui.column("cd-col", () => ui.style("countdown", { text: { size: Math.min(96, 240 / sc) } }).id("countdown").label(cd), { width: pw, height: ph, align: "center", justify: "center" }));
 }
 /** Each cell as a named area for screen readers (the browser build's DOM board mirror, visually hidden in 3D). */
 function cellTargets(): void {

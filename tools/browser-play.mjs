@@ -48,7 +48,7 @@ const url = `http://127.0.0.1:${server.address().port}/`;
 const { launchChrome } = await import('/home/albert/games/tools/gpu-chrome.mjs');
 const { browser, gpu, close } = await launchChrome(chromium);
 console.log(`# chrome on ${gpu}`);
-const dsf = gpu === 'software' ? 3 : 2; // 3× draws black on the GPU path in 1.16 (reported)
+const dsf = 3;
 let failed = false;
 
 // Clicks a ui node by its accessible name through the runtime's play-script-like page hook is not
@@ -61,8 +61,8 @@ const lesson = (tap) => [
 ];
 const views = [
   { name: 'desktop', viewport: { width: 1366, height: 768 }, steps: lesson(null) },
-  { name: 'phone', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: dsf, steps: lesson([0.43, 0.43]) },
-  { name: 'landscape', viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: dsf, steps: lesson([0.475, 0.5]) },
+  { name: 'phone', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: dsf, steps: lesson([0.40, 0.49]) },
+  { name: 'landscape', viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: dsf, steps: lesson([0.478, 0.536]) },
 ];
 for (const v of views) {
   const ctx = await browser.newContext({ viewport: v.viewport, isMobile: v.isMobile, hasTouch: v.hasTouch, deviceScaleFactor: v.deviceScaleFactor });

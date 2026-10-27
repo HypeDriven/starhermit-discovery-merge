@@ -19,10 +19,10 @@
 //   removed. Volumes, mute, graphics, language, reduced motion, high contrast
 //   and text size are the runtime's Options;
 // - the player (signed in or a guest), the invite link, the platform's clock
-//   for the daily, and posting a finished ranked round to score-script.js,
-//   which replays its command log through the rules and posts the score it
-//   computes itself (the server decides the score; the client only sends what
-//   was played), with the rank on the high-score board.
+//   for the daily, and posting a finished round's total through
+//   score-script.js (a practice session whose socket carries
+//   { type: 'result', scores }, as the JS SDK's submitScores did; the script
+//   range-checks it against the board) with the rank on the high-score board.
 import type { JsonValue } from "starhermit:engine";
 import {
   connectGame, inviteLink as fetchInviteLink, leaderboards, onPlayerChange, player, serverNow, serverTime, sessions,
@@ -231,45 +231,43 @@ async function highScoreBoard(): Promise<Leaderboard | null> {
   board = list.find((b) => b.key === "high-score") ?? list[0] ?? null;
   return board;
 }
-/** What score-script.js needs to judge a round: which board it was (it builds the
- * level from its own content), the commands played and the round's active seconds. */
-export interface RoundClaim { mode: "journey" | "daily" | "challenge"; ref: string | number; commands: unknown[]; elapsedSeconds: number }
-export interface Posted { posted: boolean; score: number | null; rank: number | null }
+export interface Posted { posted: boolean; rank: number | null }
 
-/** Signed in only: post a finished ranked round through score-script.js; never rejects. */
-export async function postLeaderboard(claim: RoundClaim): Promise<Posted> {
+/** Signed in only: post a finished round's total through score-script.js; never rejects. */
+export async function postLeaderboard(total: number): Promise<Posted> {
   const me = player();
-  if (!me) return { posted: false, score: null, rank: null };
-  let ack: { accepted: string[]; score: number | null } = { accepted: [], score: null };
+  if (!me) return { posted: false, rank: null };
+  const score = Math.max(0, Math.round(total));
+  let accepted: string[] = [];
   try {
     const sessionId = await sessions.practice();
-    ack = await new Promise((resolve) => {
+    accepted = await new Promise<string[]>((resolve) => {
       const socket = connectGame(sessionId);
       let done = false;
-      const finish = (v: { accepted: string[]; score: number | null }): void => {
+      const finish = (v: string[]): void => {
         if (done) return;
         done = true;
         clearTimeout(timer);
         socket.close();
         resolve(v);
       };
-      const timer = setTimeout(() => finish({ accepted: [], score: null }), 15000);
-      socket.on("open", () => { socket.sendCommand({ type: "result", ...claim } as unknown as JsonValue); });
+      const timer = setTimeout(() => finish([]), 15000);
+      socket.on("open", () => { socket.sendCommand({ type: "result", scores: { "high-score": score } }); });
       socket.on("game", (data) => {
-        const d = data as { type?: string; accepted?: string[]; score?: number } | null;
-        if (d && d.type === "result-ack") finish({ accepted: Array.isArray(d.accepted) ? d.accepted : [], score: typeof d.score === "number" ? d.score : null });
+        const d = data as { type?: string; accepted?: string[] } | null;
+        if (d && d.type === "result-ack") finish(Array.isArray(d.accepted) ? d.accepted : []);
       });
-      socket.on("error", () => finish({ accepted: [], score: null }));
-      socket.on("stopped", () => finish({ accepted: [], score: null }));
-      socket.on("abandoned", () => finish({ accepted: [], score: null }));
+      socket.on("error", () => finish([]));
+      socket.on("stopped", () => finish([]));
+      socket.on("abandoned", () => finish([]));
     });
-  } catch { return { posted: false, score: null, rank: null }; }
-  if (!ack.accepted.includes("high-score")) return { posted: false, score: ack.score, rank: null };
+  } catch { return { posted: false, rank: null }; }
+  if (!accepted.includes("high-score")) return { posted: false, rank: null };
   try {
     const b = await highScoreBoard();
-    if (!b) return { posted: true, score: ack.score, rank: null };
+    if (!b) return { posted: true, rank: null };
     const r = await leaderboards.entries(b.id, { pageSize: 100 });
     const mine = r.items.find((e) => e.userId === me.userId);
-    return { posted: true, score: ack.score, rank: mine ? mine.rank : null };
-  } catch { return { posted: true, score: ack.score, rank: null }; }
+    return { posted: true, rank: mine ? mine.rank : null };
+  } catch { return { posted: true, rank: null }; }
 }
