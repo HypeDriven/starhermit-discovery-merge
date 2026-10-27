@@ -532,7 +532,7 @@ function playScreen(L: Layout, top: number): void {
     app.drawerRect = { x: d.x, y: d.y, w: d.width, h: d.height };
   }
   const cd = countdownText();
-  // Workaround (engine 1.16.4, web): a glyph taller than about 256 window pixels is left out of the
+  // Workaround (engine 1.17.0, web): a glyph taller than about 256 window pixels is left out of the
   // overlay ("not valid"), so the 96 px countdown is capped at 240 window pixels on high-DPI phones.
   if (cd) ui.place("countdown", { anchor: "top-start", x: x0, y: y0 }, () => ui.column("cd-col", () => ui.style("countdown", { text: { size: Math.min(96, 240 / sc) } }).id("countdown").label(cd), { width: pw, height: ph, align: "center", justify: "center" }));
 }
