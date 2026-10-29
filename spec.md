@@ -11,7 +11,7 @@ This document describes Discovery Merge as it ships today. Present tense through
 | Genre | Solo merge/discovery puzzle with request goals |
 | Players | 1; per-device daily board |
 | Session length | Journey stage 1–4 min; Daily 5–10 min; Learn lesson under a minute |
-| Platforms | StarHermit engine 1.23.0 script game: natively in the StarHermit client, and in desktop and mobile browsers (portrait and landscape) by the engine's web runtime; a full 2D board option |
+| Platforms | StarHermit engine 1.24.0 script game: natively in the StarHermit client, and in desktop and mobile browsers (portrait and landscape) by the engine's web runtime; a full 2D board option |
 | Rendering | `starhermit:scene` tabletop diorama (three.js-like); `starhermit:ui` immediate-mode menus, HUD and dialogs, with every cell an accessibility target |
 | Backend | `score-script.js` (platform game script) posts ranked totals to the `high-score` board; fully playable as a guest and offline |
 
@@ -19,7 +19,7 @@ This document describes Discovery Merge as it ships today. Present tense through
 
 | Path | Responsibility |
 |---|---|
-| `starhermit.txt` | Manifest: `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.23.0`, `engine.minor=18`, capabilities `platform,storage,clipboard`, `server=score-script.js`, the `control.*` keys and `engine.gamepad.*` buttons |
+| `starhermit.txt` | Manifest: `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.24.0`, `engine.minor=18`, capabilities `platform,storage,clipboard`, `server=score-script.js`, the `control.*` keys and `engine.gamepad.*` buttons |
 | `index.html`, `starhermit-files.json` | The engine's web loader and the package's file index, written by `npm run package` (`starhermit package --web .`); never edited by hand |
 | `native/main.ts` | Entry module: screen flow, rounds and their snapshot, the play controller (selection, merges, moves, deliveries, drags, lesson gating), events → sounds and announcements, Undo / Hint / camera, results, progression, achievements, the device's daily board, score posting, input actions, the fixed-step clock and the lifecycle |
 | `native/screens.ts` | Every screen, the HUD (rails or drawers and the thumb tray, the lesson banner, the 2D board), the dialogs and toasts (`starhermit:ui`); layouts by window size |
