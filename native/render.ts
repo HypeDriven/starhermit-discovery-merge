@@ -16,15 +16,15 @@
 // the label tiles draw the item icons from assets/icons.png (the engine's
 // canvas has no colour emoji font); tweens run on the runtime's fixed steps
 // (tick) instead of the animation frame, so a round plays the same in every
-// run; the shadow is fitted by distance (the engine's directional shadow
-// fits the view, three.js fitted an orthographic box); adaptive resolution,
+// run; the key light's orthographic shadow box is fitted to the tray and
+// props as in the browser build; adaptive resolution,
 // the frame-rate meter and the pixel-ratio cap are the runtime's. The
 // camera is fitted to the playfield the HUD leaves (setViewOffset), as the
 // browser build's canvas sat between its rails.
 import {
   ACESFilmicToneMapping, AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color,
   ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, Fog, Group, HemisphereLight, IcosahedronGeometry,
-  Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, Object3D, PerspectiveCamera, PlaneGeometry,
+  Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, NoColorSpace, Object3D, PerspectiveCamera, PlaneGeometry,
   PMREMGenerator, PointLight, Points, PointsMaterial, Raycaster, RepeatWrapping, RingGeometry, RoomEnvironment, RoundedBoxGeometry,
   SphereGeometry, SRGBColorSpace, TorusGeometry, TorusKnotGeometry, Vector3, pointerToNdc, renderer, scene,
   type Material, type Texture,
@@ -58,13 +58,13 @@ let theme: Theme = THEMES[0]!;
 let level: LevelLike | null = null;
 let state: BoardState | null = null;
 
-const keyLight = new DirectionalLight(0xffffff, 2.6 / PI);
+const keyLight = new DirectionalLight(0xffffff, 2.6);
 keyLight.position.set(4, 8, 3);
 keyLight.shadow.bias = -0.0004;
 keyLight.shadow.normalBias = 0.02;
 scene.add(keyLight);
 scene.add(keyLight.target);
-const fillLight = new HemisphereLight(0xffffff, 0x223311, 1.25 / PI);
+const fillLight = new HemisphereLight(0xffffff, 0x223311, 1.25);
 scene.add(fillLight);
 
 const boardGroup = new Group();
@@ -238,7 +238,8 @@ function labelTexture(chain: string, tier: number, hc: boolean): Texture {
   return tex;
 }
 function webTexture(): Texture {
-  return canvasTex("web", 128, (g) => {
+  // The browser build's web CanvasTexture kept three's default NoColorSpace (used as stored).
+  const tex = canvasTex("web", 128, (g) => {
     g.strokeStyle = "rgba(235,235,245,0.9)";
     g.lineWidth = 2.5;
     const cx = 64, cy = 64;
@@ -258,6 +259,8 @@ function webTexture(): Texture {
       g.stroke();
     }
   });
+  tex.colorSpace = NoColorSpace;
+  return tex;
 }
 
 const easeOut = (t: number): number => 1 - Math.pow(1 - t, 3);
@@ -297,7 +300,9 @@ function std(p: LitParams, env = 0.35, physical = false): Material {
   const kind = look ? look.budget.material : "lambert";
   const base = { color: p.color, map: p.map ?? null, ...(p.emissive !== undefined ? { emissive: p.emissive, emissiveIntensity: p.emissiveIntensity ?? 1 } : {}) };
   if (kind === "lambert") return new MeshLambertMaterial(base);
-  const sp = { ...base, roughness: p.roughness ?? 1, metalness: p.metalness ?? 0, envMapIntensity: env };
+  // three r160 scaled scene.environment by envMapIntensity; the engine does not, so each lit
+  // material carries the room as its own envMap (applyLook keeps them in step).
+  const sp = { ...base, roughness: p.roughness ?? 1, metalness: p.metalness ?? 0, envMap: look?.reflections ? envMap() : null, envMapIntensity: env };
   if (kind === "physical" && physical) return new MeshPhysicalMaterial({ ...sp, clearcoat: p.clearcoat ?? 0, clearcoatRoughness: p.clearcoatRoughness ?? 0 });
   return new MeshStandardMaterial(sp);
 }
@@ -415,10 +420,10 @@ function buildDiorama(): void {
     cap.position.y = 0.26;
     const base = new Mesh(new CylinderGeometry(0.16, 0.2, 0.06, 16), brass);
     base.position.y = -0.2;
-    const glass = new Mesh(new SphereGeometry(0.15, 20, 14), new MeshStandardMaterial({ color: 0x000000, emissive: 0xffc27a, emissiveIntensity: 3.2 }));
+    const glass = new Mesh(new SphereGeometry(0.15, 20, 14), new MeshStandardMaterial({ color: 0x000000, emissive: 0xffc27a, emissiveIntensity: 3.2, envMap: look?.reflections ? envMap() : null }));
     const chain = new Mesh(new CylinderGeometry(0.012, 0.012, 3, 6), brass);
     chain.position.y = 1.85;
-    const light = new PointLight(0xffc27a, 5 / PI, 10, 1.6);
+    const light = new PointLight(0xffc27a, 5, 10, 1.6);
     for (const o of [cap, base, glass, chain, light]) lg.add(o);
     lg.position.set(lx, 1.7, lz);
     dio.add(lg);
@@ -433,13 +438,14 @@ function applyRestoration(): void {
   const n = Math.round(restoration * props.length);
   props.forEach((p, i) => { p.group.visible = i < n; });
 }
-/** The engine fits the directional shadow to the view out to `distance` (three.js fitted its ortho box to the tray and props). */
+/** Fit the key light's orthographic shadow box tightly around the tray + props (as src/render.js did). */
 function fitShadow(): void {
   const r = sceneRadius;
   const dir = new Vector3(4, 8, 3).normalize();
   keyLight.position.copy(dir.multiplyScalar(r + 8));
   keyLight.target.position.set(0, 0, 0);
-  keyLight.shadow.distance = 2 * r + 16;
+  Object.assign(keyLight.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 2 * r + 16 });
+  keyLight.shadow.camera.updateProjectionMatrix();
 }
 
 // -- item meshes ---------------------------------------------------------------------------------
@@ -492,7 +498,7 @@ function makeItemMesh(item: Item): ItemMesh {
     if (d) {
       // Glowing gem band at the foot of the kit: the one piece that blooms.
       const gem = new Mesh(new TorusGeometry(0.5, 0.028, 8, 40),
-        new MeshStandardMaterial({ color: 0x000000, emissive: chainColor.clone().lerp(new Color(0xffffff), 0.25), emissiveIntensity: 1.6 }));
+        new MeshStandardMaterial({ color: 0x000000, emissive: chainColor.clone().lerp(new Color(0xffffff), 0.25), emissiveIntensity: 1.6, envMap: look?.reflections ? envMap() : null }));
       gem.rotation.x = PI / 2;
       gem.position.y = PIECE_Y - 0.13;
       bob.add(gem);
@@ -640,6 +646,7 @@ function cameraTarget(): Vector3 {
 }
 function frameCamera(snap: boolean): void {
   if (!level) return;
+  camera.aspect = view.w / Math.max(1, view.h);
   camera.setViewOffset(view.w, view.h, -view.x, -view.y, view.W, view.H);
   const pos = cameraTarget();
   if (snap || reducedMotion) { camPos = pos; pulsing = false; }
@@ -783,8 +790,13 @@ export function applyLook(next: Look): void {
   keyLight.castShadow = shadows;
   if (shadows) keyLight.shadow.mapSize = next.shadows;
   // Image-based lighting from a neutral room so the pieces pick up soft reflections.
-  scene.environment = next.reflections ? envMap() : null;
-  fillLight.intensity = (next.reflections ? 0.9 : 1.25) / PI;
+  scene.environment = null;
+  const room = next.reflections ? envMap() : null;
+  scene.traverse((o) => {
+    const m = (o as Mesh).material;
+    for (const x of Array.isArray(m) ? m : m ? [m] : []) if (x instanceof MeshStandardMaterial) x.envMap = room;
+  });
+  fillLight.intensity = next.reflections ? 0.9 : 1.25;
   renderer.ao = next.ao === "off" ? null : {
     blendIntensity: 0.75, radius: 0.35, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: next.ao === "high" ? 16 : 8, resolution: next.budget.aoRes,
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
@@ -852,7 +864,7 @@ export function update(dtIn: number): void {
     for (const p of props) if (p.group.visible) p.art.rotation.y += dt * 0.4;
     if (lamp) {
       const f = 1 + Math.sin(time * 7.3) * 0.03 + Math.sin(time * 13.1) * 0.025;
-      lamp.light.intensity = (5 / PI) * f;
+      lamp.light.intensity = 5 * f;
       lamp.glass.material.emissiveIntensity = 3.2 * f;
       lamp.group.rotation.z = Math.sin(time * 0.6) * 0.02;
     }

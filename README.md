@@ -2,12 +2,12 @@
 
 Combine identical objects to unlock a branching discovery chain and restore themed scenes — an explorer's cabinet that grows into a living diorama.
 
-A StarHermit engine script game (engine 1.24.0): one package played natively by the StarHermit client and in browsers by the engine's web runtime. See `spec.md` for the full running spec.
+A StarHermit engine script game (engine 1.26.1): one package played natively by the StarHermit client and in browsers by the engine's web runtime. See `spec.md` for the full running spec.
 
 ## Run
 
 ```sh
-STARHERMIT=~/sh/runtime/1.24.0/starhermit-1.24.0-linux-x86_64/starhermit
+STARHERMIT=~/sh/runtime/1.26.1/starhermit-1.26.1-linux-x86_64/starhermit
 $STARHERMIT .            # play natively (a guest)
 npm run package          # rewrite the web loader index.html + starhermit-files.json (after every change)
 ```
