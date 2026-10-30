@@ -802,7 +802,8 @@ export function applyLook(next: Look): void {
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
   // A high threshold: only emissive gems, the lamp glass and bright highlights bloom (UnrealBloomPass 0.38, 0.45, 0.92).
-  renderer.bloom = next.bloom ? { strength: 0.38, radius: 0.45, threshold: 0.92, resolution: next.budget.bloomRes } : null;
+  // minor 29 bloom follows r185's UnrealBloomPass; this page ran three r160, so the strength is squared (0.38² ≈ 0.144) to keep its look.
+  renderer.bloom = next.bloom ? { strength: 0.144, radius: 0.45, threshold: 0.92, resolution: next.budget.bloomRes } : null;
   // src/render.js GradeShader (display space): a gentle S-curve, a touch more
   // saturation, warm highlights / cool shadows and the 0.26 vignette.
   renderer.grade = next.grade ? {
