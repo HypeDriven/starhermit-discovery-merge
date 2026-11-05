@@ -13,8 +13,8 @@
 // Gaps and changes from three.js: light intensities are three.js's ÷ π (the
 // engine's convention); the post chain is renderer.ao / bloom / grade /
 // antialias (the grade the browser build's GradeShader in display space);
-// the label tiles draw the item icons from assets/icons.png (the engine's
-// canvas has no colour emoji font); tweens run on the runtime's fixed steps
+// the label tiles bake the item icons as emoji text (StarHermit Emoji, once
+// it has loaded, as the browser build filled them); tweens run on the runtime's fixed steps
 // (tick) instead of the animation frame, so a round plays the same in every
 // run; the key light's orthographic shadow box is fitted to the tray and
 // props as in the browser build; adaptive resolution,
@@ -31,7 +31,7 @@ import {
 } from "starhermit:scene";
 import { OffscreenCanvas, type OffscreenCanvasRenderingContext2D } from "starhermit:canvas";
 import { CHAINS, THEMES, itemIcon } from "../src/content.js";
-import { CELL as ICON_PX, iconAtlas, iconIndex, iconRect, whenIcons } from "./icons.ts";
+import { fillIcon, whenIcons } from "./icons.ts";
 import type { Look } from "./quality.ts";
 
 const PI = Math.PI;
@@ -120,7 +120,7 @@ function canvasTex(key: string, size: number, paint: (g: Ctx, n: number) => void
   tex.colorSpace = SRGBColorSpace;
   tex.wrapS = tex.wrapT = RepeatWrapping;
   tex.repeat.set(repeat, repeat);
-  tex.anisotropy = 4;
+  tex.anisotropy = look?.anisotropy ?? 4;
   texCache.set(key, tex);
   return tex;
 }
@@ -230,11 +230,7 @@ function labelTexture(chain: string, tier: number, hc: boolean): Texture {
   labelCache.set(key, tex);
   // The icon (src/render.js filled the emoji at 58 px, centred a little high).
   whenIcons(() => {
-    const atlas = iconAtlas();
-    const i = iconIndex(itemIcon(chain, tier));
-    if (!atlas || i < 0) return;
-    const s = iconRect(i);
-    g.drawImage(atlas, s.x, s.y, ICON_PX, ICON_PX, 64 - 33, 58 - 33, 66, 66);
+    fillIcon(g, itemIcon(chain, tier), 64, 58, 66, hc ? "#ffffff" : "#fffaf0");
     tex.needsUpdate = true;
   });
   return tex;
@@ -790,7 +786,9 @@ export function applyLook(next: Look): void {
   const shadows = next.shadows > 0;
   renderer.shadowMap.enabled = shadows;
   keyLight.castShadow = shadows;
-  if (shadows) keyLight.shadow.mapSize = next.shadows;
+  if (shadows) keyLight.shadow.mapSize = next.shadows; // the level's size: the runtime keeps a game's mapSize
+  // The level's anisotropic filtering on the wood, felt, panel and plank textures.
+  for (const t of texCache.values()) if (t.anisotropy !== next.anisotropy) { t.anisotropy = next.anisotropy; t.needsUpdate = true; }
   // Image-based lighting from a neutral room so the pieces pick up soft reflections.
   scene.environment = null;
   const room = next.reflections ? envMap() : null;
@@ -799,13 +797,15 @@ export function applyLook(next: Look): void {
     for (const x of Array.isArray(m) ? m : m ? [m] : []) if (x instanceof MeshStandardMaterial) x.envMap = room;
   });
   fillLight.intensity = next.reflections ? 0.9 : 1.25;
-  renderer.ao = next.ao === "off" ? null : {
-    blendIntensity: 0.75, radius: 0.35, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: next.ao === "high" ? 16 : 8, resolution: next.budget.aoRes,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
+  // The level's AO resolution and samples; full resolution is the engine's "high" (the wider denoise).
+  const ao = next.ao, full = !!ao && ao.resolution >= 1;
+  renderer.ao = ao && {
+    blendIntensity: 0.75, radius: 0.35, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: ao.samples, resolution: ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: ao.denoiseSamples, radiusExponent: 2 },
   };
   // A high threshold: only emissive gems, the lamp glass and bright highlights bloom (UnrealBloomPass 0.38, 0.45, 0.92).
   // minor 30: this page ran three r160, so r160's UnrealBloomPass (model "r160") at the page's own strength.
-  renderer.bloom = next.bloom ? { model: "r160", strength: 0.38, radius: 0.45, threshold: 0.92, resolution: next.budget.bloomRes } : null;
+  renderer.bloom = next.bloom !== null ? { model: "r160", strength: 0.38, radius: 0.45, threshold: 0.92, resolution: next.bloom } : null;
   // src/render.js GradeShader (display space): a gentle S-curve, a touch more
   // saturation, warm highlights / cool shadows and the 0.26 vignette.
   renderer.grade = next.grade ? {

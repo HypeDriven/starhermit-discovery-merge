@@ -24,19 +24,19 @@ This document describes Discovery Merge as it ships today. Present tense through
 | `native/main.ts` | Entry module: screen flow, rounds and their snapshot, the play controller (selection, merges, moves, deliveries, drags, lesson gating), events → sounds and announcements, Undo / Hint / camera, results, progression, achievements, the device's daily board, score posting, input actions, the fixed-step clock and the lifecycle |
 | `native/screens.ts` | Every screen, the HUD (rails or drawers and the thumb tray, the lesson banner, the 2D board), the dialogs and toasts (`starhermit:ui`); layouts by window size |
 | `native/render.ts` | The cabinet on `starhermit:scene`: tray, cells, item meshes and label tiles, diorama props, lantern, sparks and motes, rings, camera framed into the playfield, picking, the graphics look |
-| `native/quality.ts` | The old presets and budgets keyed by the runtime's quality tier and level |
+| `native/quality.ts` | The engine level's effects (`levelSettings()`) plus the old presets' art and budgets keyed by the runtime's quality tier |
 | `native/platform.ts` | The save (engine `saves`, foreign-save migration, conflict merge), the `localStorage` shim, the game's options (engine `settings`, legacy settings migration), the player, invite link, platform clock, leaderboard posting |
 | `native/audio.ts` | Clips on the runtime's buses, the rendered ambience bed and music notes |
-| `native/i18n.ts`, `native/style.ts`, `native/icons.ts` | Locale from the runtime's language; the converted style sheet, theme and high-contrast tokens; the emoji atlas |
+| `native/i18n.ts`, `native/style.ts`, `native/icons.ts` | Locale from the runtime's language; the converted style sheet, theme and high-contrast tokens; the emoji icons drawn as font text |
 | `src/engine/rules.js`, `src/engine/rng.js` | Pure deterministic rules (`createGame`, `legalActions`, `applyCommand`, scoring, terminal checks, `replay`) and the seeded streams/hashes |
 | `src/content.js` | Chains, five themes, 40 journey stages, daily/practice/challenge generators, four lessons, `validateLevel` |
 | `src/session.js` | `GameSession`: command log, undo stack, elapsed clock (`clock.now`, the engine's fixed steps), replay envelope, snapshots |
 | `src/persist.js` | Checksummed save document, board snapshot, guest id, `ACHIEVEMENTS`, `DEFAULT_SETTINGS`, `mergeSaves` |
 | `src/i18n.js`, `src/locales/*.js` | Localization core (`T`, `N`, `setLocale`) and the en-GB, es (es-419 + es-ES), de, fr (fr-FR + fr-CA), pt-BR and it-IT dictionaries keyed by the US-English text |
 | `score-script.js` | StarHermit platform script (`server=`): range-checks a finished round's total and posts it to the `high-score` leaderboard (canonical copy, games repo `tools/score-script.js`) |
-| `assets/` | `key-art.webp`, `cabinet-restored.webp`, `cabinet-locked.webp`, `icons.png` (emoji atlas), `ui-style.json` (converted styles) |
+| `assets/` | `key-art.webp`, `cabinet-restored.webp`, `cabinet-locked.webp`, `ui-style.json` (converted styles) |
 | `sfx/` | 15 Opus clips, `manifest.txt` (canonical), `manifest.json`, `manifest.md` |
-| `tools/` | `ui-style.css` + `css.mjs` (styles), `package-web.mjs`, `gen-plays.mjs` (play scripts from the rules), `emoji-atlas.mjs`, `browser-play.mjs` (GPU Chrome check) |
+| `tools/` | `ui-style.css` + `css.mjs` (styles), `package-web.mjs`, `gen-plays.mjs` (play scripts from the rules), `browser-play.mjs` (GPU Chrome check) |
 | `tests/` | `rules.test.mjs`, `save.test.mjs`, `i18n.test.mjs` + `i18n-keys.mjs` (node --test), `native.mjs` + `native/*.play` (engine checks) |
 | `coverart.png`, `cover.jpg`, `icon.png`, `LICENSE.md` | Distribution metadata |
 
@@ -164,7 +164,7 @@ On the board: tap a Field Kit to produce an item; select a piece, then tap an id
 - **Title**: key art (cover-fitted, at most 42 % of the height and leaving room for the menu; panel colour while it loads), tagline, Play, Daily Cabinet / Journey / Curator Profile cards (they wrap), Sign in with StarHermit (guests) and Invite a friend (signed in), Resume paused board.
 - **Modes**: six cards in an auto-fill grid (min 240 px) with one-line rule summaries and ranked flags; Back.
 - **Journey**: five theme groups of eight stage buttons (min 136 px); locked stages disabled; names announce stage, best, locked and mastery.
-- **Set-up**: level name, rules summary, the ⏱ minutes / 👤 players / 🎲 seed / 🎯 action-limit marks (atlas icons), Ranked/Unranked badge, the daily note, Start. Also hosts the Learn, Practice and Challenge lists and Score Chase (this device's daily table, Copy today's challenge seed, and a Shared seed date field with Play seed: another day's cabinet, unranked).
+- **Set-up**: level name, rules summary, the ⏱ minutes / 👤 players / 🎲 seed / 🎯 action-limit marks (emoji icons), Ranked/Unranked badge, the daily note, Start. Also hosts the Learn, Practice and Challenge lists and Score Chase (this device's daily table, Copy today's challenge seed, and a Shared seed date field with Play seed: another day's cabinet, unranked).
 - **Play**, wide (≥ 1024 px, not short landscape): left rail Requests + lesson panel (240–304 px), the board between, right rail score / actions / timer / Pause / Undo / Hint / Reset camera (208–256 px); Left-handed layout swaps the rails. Compact: the board fills the window above the thumb tray (Pause, Undo, Hint, Requests, Score; reversed when left-handed, wrapping on phones); Requests and Score open drawers over the board (≤ 320 px); a lesson's step and its Finish lesson button sit in a banner above the board. The 3D board is framed into the playfield (`setViewOffset`); the page colour paints around it.
 - **Countdown**: Ready, Set, Go! (0.48 s each) over the board; skipped with reduced motion.
 - **Results**: headline (won green / lost red), illustration (`cabinet-restored.webp` / `cabinet-locked.webp`, sized to the room), breakdown, actions / invalid / elapsed / par / seed line, achievement lines, leaderboard line; Retry, Next stage (journey wins) and Home in a footer pinned to the bottom.
@@ -181,26 +181,25 @@ Must never be cut off: the Play button, the deliver buttons, the tray, the count
 
 **Graphics.** ACES tone mapping (exposure 1.18), a key directional light with an orthographic shadow box fitted to the tray and prop ring, and a hemisphere fill (the browser build's three r160 intensities). At the detailed tiers the tray is walnut-grained with a brass inlay rim, cells are speckled felt on rounded slabs, pieces are rounded clear-coated slabs, generators gain a softly pulsing glowing gem band and an idle bob, crates show planks and metal bands, the back wall shows panelling, and a hanging brass lantern adds a warm flickering point light. Image-based lighting (`RoomEnvironment` through `PMREMGenerator`) gives the materials restrained reflections. Post-processing is the renderer's: ambient occlusion, bloom (threshold 0.92, so only the gem bands, lantern glass and bright highlights bloom), the colour grade with vignette in display space, and FXAA/SMAA/MSAA. Dust motes drift through the lamplight on the higher tiers. Ambient motion stops under the runtime's reduced-motion option.
 
-**Graphics levels.** The runtime's Options choose the graphics level (Auto from the device, or a level), the render scale, adaptive resolution, the frame-rate limit and readout; `native/quality.ts` maps the runtime's quality tier (`frame().quality`) to the old preset and its budget, and the level within the tier (`frame().levelIndex`, about 1.64× apart) scales sparks and motes up to 4× (capped at the pools). The old per-effect overrides are not offered. Changing the level rebuilds the tray, diorama and item meshes when the asset variants differ. Gameplay is identical at every level.
+**Graphics levels.** The runtime's Options choose the graphics level (Auto from the device, or a level), the render scale, adaptive resolution, the frame-rate limit and readout; `native/quality.ts` takes the engine-owned effects from the level (`levelSettings()`: shadows and the key light's map size, AO resolution and samples, bloom resolution, grade, anti-aliasing, the textures' anisotropy) and maps the runtime's quality tier (`frame().quality`) to the old preset's art and budget; the level's particle budget over the tier's anchor (×2 a level) scales sparks and motes up to 4× (capped at the pools). The table shows the anchor levels (quantum, molecular, terrestrial, galactic); the levels between take their own effects (e.g. atomic FXAA and the grade, planetary and stellar 4096² shadows). The old per-effect overrides are not offered. Changing the level rebuilds the tray, diorama and item meshes when the asset variants differ. Gameplay is identical at every level.
 
 | Look | Low | Balanced | High | Ultra |
 |---|---|---|---|---|
 | Shadows | off | 1024² | 2048² | 4096² |
-| Ambient occlusion / bloom / grade | off / off / off | off / on / on | on / on / on | high / on / on |
-| Anti-aliasing | MSAA | FXAA | SMAA | MSAA |
+| Ambient occlusion / bloom / grade | off / off / off | off / ½-res / on | ½-res 8 / ½-res / on | full 16 / full / on |
+| Anti-aliasing | MSAA (the level's "off" until engine 1.36.2: 1.36.1's "off" recolours fog and translucent overlays) | FXAA | SMAA | MSAA |
 | Reflections, motes, detailed surfaces | off | on | on | on |
 | Materials (tray, cells, pieces, crates, props) | Lambert | Standard | Physical (clearcoat pieces) | Physical |
 | Rounded-box segments of pieces (cells/crates half) | 1 | 2 | 4 | 6 |
 | Pedestal / torus-knot artefact segments | 8 | 12 | 20 | 32 |
 | Sparks per merge burst (pool 240; low particles ≤ 18) | 12 | 20 | 40 | 60 |
 | Dust motes (pool 90) | 16 | 30 | 60 | 90 |
-| Bloom / AO resolution | ½ / ½ | ½ / ½ | ½ / ½ | full / full |
 
 **Typography**: the runtime's serif face (`ui.setFont({ family: "serif" })`) at 16 px; the runtime's interface and text size options scale it. Headings are 700 weight in the style sheet (the generic serif face may draw them regular).
 
 **Motion**: spawn scale-in 0.28 s, merge pulse 0.22 s, move slide 0.25 s ease-in-out, camera reframe 0.6 s, win/lose camera pulse 0.5 s, particle bursts of 40 from a 240-point pool. Reduced motion (the runtime's option) snaps every tween to its end state, disables shakes, pulses, ring spin and bursts except the win burst, and skips the countdown. The countdown is drawn at 96 px, capped at 240 window pixels on high-DPI screens (the web runtime leaves out taller glyphs).
 
-**Visual assets the design calls for**: title key art, win illustration, lock-up illustration, cover art, favicon/icon — all shipped (see §15). Board geometry stays procedural by design; no external models. Item icons are the browser build's emoji, rendered once from Noto Color Emoji into `assets/icons.png` (`tools/emoji-atlas.mjs`): the engine's fonts have no colour emoji.
+**Visual assets the design calls for**: title key art, win illustration, lock-up illustration, cover art, favicon/icon — all shipped (see §15). Board geometry stays procedural by design; no external models. Item icons are the browser build's emoji, drawn as text in the engine's StarHermit Emoji font (a system face that has one draws it first; ⛏️ ⚙️ 🕸️ ⏱️ are text-style there, drawn in the ink colour); the 3D label tiles bake them once the font has loaded.
 
 ## 9. Audio direction
 
@@ -282,7 +281,6 @@ QA bar: no console errors or warnings; no text or control clipped at 1366×768, 
 | `assets/cabinet-locked.webp` (640×400, 24 KB) | Results illustration on a loss | FLUX.2 klein, seed 2022 | generated in this pass, wired |
 | `coverart.png` (1200×675, 356 KB) | Platform cover | key art scaled and palettised | replaced in this pass (previous file was a generic placeholder) |
 | `icon.png` | Platform icon | authored | shipped |
-| `assets/icons.png` | Item and mark icons (34 emoji, 128 px cells) | Noto Color Emoji via `tools/emoji-atlas.mjs` | shipped |
 | `sfx/*.opus` × 12 (tap … undo) | Core cues, see §9 | MOSS-SoundEffect v2.0 | shipped |
 | `sfx/hint-glimmer.opus`, `sfx/web-clear.opus`, `sfx/achievement-medal.opus` | hint, webClear, achievement cues | MOSS-SoundEffect v2.0, 100 steps | generated in this pass, wired |
 | `sfx/manifest.txt` | Canonical clip → event → description → usage list | hand-written | added in this pass |

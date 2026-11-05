@@ -1,0 +1,54 @@
+# Graphics-tier bench (tools/engine-tier-bench.mjs): Journey stage 1 (First
+# Shelf, a fixed board; the moves journey-stages.play makes), settled, then
+# the opening Field Kit taps and merges measured with their sparks.
+until 300 Discovery Merge
+frames 30
+click =Play
+until 60 Choose a mode
+frames 10
+click Journey
+until 60 Atelier of Dawn
+frames 10
+click First Shelf
+until 60 =Start
+frames 10
+click =Start
+until 120 =Ready
+frames 120
+measure start
+key ArrowDown 1
+frames 1
+key ArrowDown 1
+frames 1
+key ArrowRight 1
+frames 1
+key ArrowRight 1
+frames 1
+key ArrowRight 1
+frames 1
+key ArrowRight 1
+frames 1
+key Enter 1
+frames 20
+key Enter 1
+frames 20
+key ArrowUp 1
+frames 1
+key ArrowUp 1
+frames 1
+key ArrowLeft 1
+frames 1
+key Enter 1
+frames 3
+key ArrowDown 1
+frames 1
+key ArrowDown 1
+frames 1
+key ArrowLeft 1
+frames 1
+key Enter 1
+frames 20
+key Enter 1
+frames 3
+frames 400
+measure stop
