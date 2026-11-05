@@ -187,7 +187,7 @@ Must never be cut off: the Play button, the deliver buttons, the tray, the count
 |---|---|---|---|---|
 | Shadows | off | 1024² | 2048² | 4096² |
 | Ambient occlusion / bloom / grade | off / off / off | off / ½-res / on | ½-res 8 / ½-res / on | full 16 / full / on |
-| Anti-aliasing | MSAA (the level's "off" until engine 1.36.2: 1.36.1's "off" recolours fog and translucent overlays) | FXAA | SMAA | MSAA |
+| Anti-aliasing | None (the level's "off") | FXAA | SMAA | MSAA |
 | Reflections, motes, detailed surfaces | off | on | on | on |
 | Materials (tray, cells, pieces, crates, props) | Lambert | Standard | Physical (clearcoat pieces) | Physical |
 | Rounded-box segments of pieces (cells/crates half) | 1 | 2 | 4 | 6 |
