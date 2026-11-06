@@ -12,7 +12,7 @@
     "native/audio.ts": {"sha256": "41023e6955bd5d9d494a8e106c348c94b2b3ca06d69c34d3284442fd9884ab5f", "size": 6060},
     "native/i18n.ts": {"sha256": "dae0873f21abcf10a0145d9c117f2165d93db71cc381d3f006c77197273a80da", "size": 1355},
     "native/icons.ts": {"sha256": "dd5358fcb9f46987e3b184760597d4612083a27f5e51bb2ef11cb34955c4acf2", "size": 3978},
-    "native/main.ts": {"sha256": "7687e0163f91fabc245a4abb2946de0ab83376acd07d752c9fa881ad93f1385f", "size": 39449},
+    "native/main.ts": {"sha256": "066cca2b9bb616fd1ee685be95a9ef247864609a9e177c923a3885d68f7c554f", "size": 39844},
     "native/platform.ts": {"sha256": "99c8ed59effaabfe0c71609d5aa7c8dcbb4099c4cbc185281aca95c09f8d2d2b", "size": 11364},
     "native/quality.ts": {"sha256": "f687136d4e3b51e6811772735ebfd25d24da5bf52e68f6ea3b406365d5e4604f", "size": 4320},
     "native/render.ts": {"sha256": "93019250b5a36f3b7bbc5e3395bb03023929c262123fe610052eb11870a21d9e", "size": 40771},

@@ -113,8 +113,13 @@ export function announce(text: string, assertive = false): void {
   if (text) ui.announce(text.slice(0, 500), { politeness: assertive ? "assertive" : "polite" });
 }
 /** src/ui.js toast(): 2.6 s. */
+const liveToasts: { toast: ReturnType<NonNullable<typeof ui.toast>>; until: number }[] = [];
 export function toast(text: string, err = false): void {
-  ui.toast!(text, { duration: 2.6, style: err ? "toast-err" : "toast", dismissible: false, announce: false, position: "bottom", offset: toastOffset() });
+  // The stack holds three and queues the rest: the oldest makes way, as before.
+  while (liveToasts.length && liveToasts[0]!.until < now()) liveToasts.shift();
+  if (liveToasts.length >= 3) liveToasts.shift()!.toast?.dismiss();
+  const handle = ui.toast!(text, { duration: 2.6, style: err ? "toast-err" : "toast", dismissible: false, announce: false, position: "bottom", offset: toastOffset() });
+  liveToasts.push({ toast: handle, until: now() + 2.6 });
 }
 export function persist(): void { storeSave(save); }
 export const itemName = (chain: string, tier: number): string => T(itemLabel(chain, tier));
