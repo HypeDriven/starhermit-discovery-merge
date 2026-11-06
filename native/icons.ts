@@ -1,7 +1,7 @@
 // The browser build's emoji icons (item tiers, the Field Kit, crates,
 // cobwebs, the setup and profile marks), drawn as font text as the browser
-// build drew them: the engine's StarHermit Emoji has every one of them (a
-// system face that has one draws it first). Most draw in their own colours;
+// build drew them: the engine's StarHermit Emoji has every one of them. Most
+// draw in their own colours;
 // ⛏️ ⚙️ 🕸️ ⏱️ are text-style in that font and draw in the given colour.
 // Each icon's ink box is centred in its square and fills ICON_FILL of it
 // (the old Noto atlas cells' share). The UI draws them with draw.text; the
@@ -19,7 +19,8 @@ export const ICONS = [
 ];
 /** The share of an icon's square its ink box fills (the old atlas: ~111 of 128 px). */
 const ICON_FILL = 0.87;
-const FONT = "sans-serif";
+const FONT = "'StarHermit Emoji', sans-serif";
+const DRAW_FONT = "StarHermit Emoji";
 const REF = 100;
 
 let ready = false;
@@ -69,5 +70,5 @@ export function drawIcon(emoji: string, x: number, y: number, size: number, opts
   const base = opts.grey ? "#9a9a9a" : opts.color ?? "#f2e9da";
   const color = opts.alpha != null ? `${base}${Math.round(opts.alpha * 255).toString(16).padStart(2, "0")}` : base;
   // draw.text's y is the line box's top: the baseline sits the font's ascent below it.
-  draw.text(emoji, x + size / 2 - m.dx * px, y + size / 2 - (m.dy + m.asc) * px, { size: px, font: FONT, color, align: "center" });
+  draw.text(emoji, x + size / 2 - m.dx * px, y + size / 2 - (m.dy + m.asc) * px, { size: px, font: DRAW_FONT, color, align: "center" });
 }

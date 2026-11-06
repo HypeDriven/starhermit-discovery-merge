@@ -14,7 +14,7 @@
 // the toasts. The browser's media queries are layouts picked by the window's
 // logical size: wide (≥ 1024 px: rails beside the board), compact (drawers
 // and the tray); the left-handed option swaps the rails and the tray.
-import { frame, openMenu } from "starhermit:engine";
+import { frame, openMenu, strings } from "starhermit:engine";
 import { bindingLabel, requestRebind } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
@@ -37,12 +37,10 @@ import { ink } from "./style.ts";
 // ------------------------------------------------------------------ layout
 interface Layout { lw: number; lh: number; sc: number; ox: number; oy: number; wide: boolean; phone: boolean; shortLand: boolean }
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
+  const v = ui.viewport!();
+  const lw = Math.max(1, v.width), lh = Math.max(1, v.height);
   const shortLand = lw > lh && lh <= 520;
-  return { lw, lh, sc, ox: sa.left / sc, oy: sa.top / sc, wide: !shortLand && lw >= 1024, phone: lw < 560, shortLand };
+  return { lw, lh, sc: v.scale, ox: v.x, oy: v.y, wide: !shortLand && lw >= 1024, phone: lw < 560, shortLand };
 }
 const lastHeight = new Map<string, number>();
 const pr = (): ui.UiPreferences => ui.preferences();
@@ -120,7 +118,6 @@ export function drawScreens(): void {
     case "results": resultsScreen(L, top); break;
   }
   dialogs(L);
-  toasts(L);
   if (app.focusNext && !app.modal) {
     const age = f.frame - app.openedFrame;
     if (age >= 1) ui.setFocus(app.focusNext);
@@ -232,8 +229,8 @@ function titleScreen(L: Layout, top: number): void {
       }
     }, { spacing: 13, align: "center", width: w });
     const plat: Btn[] = [];
-    if (!platform.signedIn()) plat.push({ id: "btn-signin", text: T("Sign in with StarHermit"), style: ["card-btn"], act: signIn });
-    if (platform.inviteLink()) plat.push({ id: "btn-invite", text: T("Invite a friend"), style: ["card-btn"], act: copyInvite });
+    if (!platform.signedIn()) plat.push({ id: "btn-signin", text: strings.t("starhermit.signIn"), style: ["card-btn"], act: signIn });
+    if (platform.inviteLink()) plat.push({ id: "btn-invite", text: strings.t("starhermit.invite"), style: ["card-btn"], act: copyInvite });
     if (plat.length) flow("title-platform", plat, w, "center");
     if (loadSnapshot()) button({ id: "btn-resume", text: T("Resume paused board"), style: ["primary"], act: resumeSnapshot });
   }, true);
@@ -765,15 +762,8 @@ function settingsBody(w: number): void {
 }
 
 // ------------------------------------------------------------------ toasts
-function toasts(L: Layout): void {
-  if (!app.toasts.length) return;
-  const bottom = app.screen === "play" && !L.wide ? (lastHeight.get("tray") ?? 64) + 8 : 16;
-  const w = Math.min(L.lw - 24, 520);
-  ui.place("toast-root", { anchor: "bottom", y: bottom }, () => ui.column("toast-col", () => {
-    app.toasts.forEach((t, i) => {
-      const cls = t.err ? "toast-err" : "toast";
-      if (textWidth(t.text, cls) + 40 <= w) ui.style(cls).id(`toast-${i}`).label(t.text);
-      else ui.style(cls).id(`toast-${i}`).paragraph(t.text, w - 40);
-    });
-  }, { spacing: 6, align: "center" }));
+/** ui.toast's stack, past its 16 px margin: above the thumb tray in a round without rails. */
+export function toastOffset(): number {
+  if (app.screen !== "play" || layoutNow().wide) return 0;
+  return Math.max(0, (lastHeight.get("tray") ?? 64) + 8 - 16);
 }

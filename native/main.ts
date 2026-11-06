@@ -22,7 +22,7 @@
 // (src/session.js clock) reads them, and the countdown, the input lock after
 // an action, the hint's 2.6 s and the 0.7 s before the results wait on the
 // same steps, so play scripts replay exactly.
-import { clipboard, frame, levelSettings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
+import { clipboard, frame, levelSettings, strings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
 import { onAction, onPointerButton, onPointerMove, onTouch, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded, requestSignIn } from "starhermit:platform";
@@ -38,7 +38,7 @@ import { N, T } from "./i18n.ts";
 import * as platform from "./platform.ts";
 import { lookFor } from "./quality.ts";
 import * as render from "./render.ts";
-import { drawScreens } from "./screens.ts";
+import { drawScreens, toastOffset } from "./screens.ts";
 import { applyContrast, initStyles } from "./style.ts";
 
 // -- the shapes this client reads ------------------------------------------------------
@@ -80,7 +80,6 @@ export interface Round {
   selected: number; focus: number; lockMs: number; finishMs: number | null; lessonFinished: boolean;
   hint: { cells: number[]; ms: number } | null; tutorialStep: number;
 }
-export interface Toast { text: string; until: number; err: boolean }
 
 const STEP_MS = 1000 / 60;
 let fixedMs = 0;
@@ -98,7 +97,6 @@ export const app = {
   lb: null as null | "posting" | platform.Posted,
   countdown: null as { i: number; left: number } | null,
   drawer: null as "left" | "right" | null,
-  toasts: [] as Toast[],
   sharedSeed: "",
   /** Request cards' rectangles this frame (window pixels), for drags onto them. */
   requestRects: [] as { id: string; x: number; y: number; w: number; h: number }[],
@@ -116,8 +114,7 @@ export function announce(text: string, assertive = false): void {
 }
 /** src/ui.js toast(): 2.6 s. */
 export function toast(text: string, err = false): void {
-  app.toasts.push({ text, until: now() + 2.6, err });
-  if (app.toasts.length > 3) app.toasts.shift();
+  ui.toast!(text, { duration: 2.6, style: err ? "toast-err" : "toast", dismissible: false, announce: false, position: "bottom", offset: toastOffset() });
 }
 export function persist(): void { storeSave(save); }
 export const itemName = (chain: string, tier: number): string => T(itemLabel(chain, tier));
@@ -556,9 +553,9 @@ function postToLeaderboard(r: Round, res: Results): void {
 export function leaderboardLine(): string | null {
   const lb = app.lb;
   if (!lb) return null;
-  if (lb === "posting") return T("Posting score to the leaderboard…");
-  if (!lb.posted) return T("Score not posted to the leaderboard.");
-  return lb.rank ? T("Leaderboard rank: #{rank}", { rank: lb.rank }) : T("Score posted to the leaderboard.");
+  if (lb === "posting") return strings.t("starhermit.leaderboardPosting");
+  if (!lb.posted) return strings.t("starhermit.leaderboardNotPosted");
+  return lb.rank ? strings.t("starhermit.leaderboardRank", { rank: lb.rank }) : strings.t("starhermit.leaderboardPosted");
 }
 let lastPlayed: Round | null = null;
 export function retry(): void { const r = lastPlayed; if (r) startLevel(r.level, r.mode, r.journeyIndex); }
@@ -591,8 +588,8 @@ function adoptSave(next: Record<string, unknown>): void {
 export function copyInvite(): void {
   const link = platform.inviteLink();
   if (!link) return;
-  try { clipboard.writeText(link); toast(T("Invite link copied to the clipboard.")); }
-  catch { toast(T("Could not copy — invite link: {link}", { link })); }
+  try { clipboard.writeText(link); toast(strings.t("starhermit.inviteCopied")); }
+  catch { toast(strings.t("starhermit.inviteLink", { link })); }
 }
 export function signIn(): void { void requestSignIn().catch(() => undefined); }
 platform.onAdopt((doc) => {
@@ -813,8 +810,6 @@ onUpdate((dt) => {
   applyContrast(hc);
   if (hcWas !== null && hcWas !== hc) applyOptions();
   hcWas = hc;
-  const t = now();
-  app.toasts = app.toasts.filter((x) => x.until >= t);
 });
 onRender(() => {
   drawScreens();

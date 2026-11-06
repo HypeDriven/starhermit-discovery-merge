@@ -28,6 +28,6 @@ npm run css              # convert tools/ui-style.css into assets/ui-style.json
 - `src/content.js` — chains, 5 themes, 40 journey stages, daily/challenge/practice generators, validator
 - `src/session.js` — command log, undo, snapshots, replay envelopes
 - `src/persist.js` — versioned, checksummed save document and its merge
-- `src/i18n.js`, `src/locales/` — the nine locales
+- `assets/strings.json` — the nine locales (engine string tables)
 - `score-script.js` — platform script posting range-checked totals to the high-score board
 - `starhermit.txt` — distribution manifest (engine pin, actions, `server=score-script.js`)
