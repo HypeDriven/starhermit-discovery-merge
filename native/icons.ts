@@ -1,3 +1,6 @@
+import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
+// localization-runtime:attached
+import { localizedFont as __l10nFont, localizedCanvasFont as __l10nCanvasFont } from "./l10n/font.ts";
 // The browser build's emoji icons (item tiers, the Field Kit, crates,
 // cobwebs, the setup and profile marks), drawn as font text as the browser
 // build drew them: the engine's StarHermit Emoji has every one of them. Most
@@ -41,7 +44,7 @@ function inkOf(emoji: string): Ink {
   let m = inks.get(emoji);
   if (m) return m;
   probe ??= new OffscreenCanvas(4, 4).getContext("2d")!;
-  probe.font = `${REF}px ${FONT}`;
+  probe.font = __l10nCanvasFont(`${REF}px ${FONT}`);
   probe.textAlign = "center";
   probe.textBaseline = "alphabetic";
   const t = probe.measureText(emoji);
@@ -56,7 +59,7 @@ export function fillIcon(g: OffscreenCanvasRenderingContext2D, emoji: string, cx
   const m = inkOf(emoji), px = m.scale * size;
   g.save();
   g.fillStyle = color;
-  g.font = `${px}px ${FONT}`;
+  g.font = __l10nCanvasFont(`${px}px ${FONT}`);
   g.textAlign = "center";
   g.textBaseline = "alphabetic";
   g.fillText(emoji, cx - m.dx * px, cy - m.dy * px);
@@ -70,5 +73,5 @@ export function drawIcon(emoji: string, x: number, y: number, size: number, opts
   const base = opts.grey ? "#9a9a9a" : opts.color ?? "#f2e9da";
   const color = opts.alpha != null ? `${base}${Math.round(opts.alpha * 255).toString(16).padStart(2, "0")}` : base;
   // draw.text's y is the line box's top: the baseline sits the font's ascent below it.
-  draw.text(emoji, x + size / 2 - m.dx * px, y + size / 2 - (m.dy + m.asc) * px, { size: px, font: DRAW_FONT, color, align: "center" });
+  draw.text(emoji, x + size / 2 - m.dx * px, y + size / 2 - (m.dy + m.asc) * px, __l10nDrawOptions({ size: px, font: __l10nFont(DRAW_FONT), color, align: "center" }));
 }
