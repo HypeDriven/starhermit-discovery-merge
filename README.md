@@ -1,5 +1,7 @@
 # Discovery Merge
 
+**[▶ Play Discovery Merge on StarHermit](https://dashboard.starhermit.com/play/d59b2dc7-923d-4804-8d64-0c33c6dc14ad)**
+
 Combine identical objects to unlock a branching discovery chain and restore themed scenes — an explorer's cabinet that grows into a living diorama.
 
 A StarHermit engine script game (engine 1.26.1): one package played natively by the StarHermit client and in browsers by the engine's web runtime. See `spec.md` for the full running spec.
