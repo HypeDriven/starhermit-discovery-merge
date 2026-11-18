@@ -11,7 +11,7 @@ This document describes Discovery Merge as it ships today. Present tense through
 | Genre | Solo merge/discovery puzzle with request goals |
 | Players | 1; per-device daily board |
 | Session length | Journey stage 1–4 min; Daily 5–10 min; Learn lesson under a minute |
-| Platforms | StarHermit engine 1.39.0 script game: natively in the StarHermit client, and in desktop and mobile browsers (portrait and landscape) by the engine's web runtime; a full 2D board option |
+| Platforms | StarHermit engine 1.44.1 script game: natively in the StarHermit client, and in desktop and mobile browsers (portrait and landscape) by the engine's web runtime; a full 2D board option |
 | Rendering | `starhermit:scene` tabletop diorama (three.js-like); `starhermit:ui` immediate-mode menus, HUD and dialogs, with every cell an accessibility target |
 | Backend | `score-script.js` (platform game script) posts ranked totals to the `high-score` board; fully playable as a guest and offline |
 
@@ -19,7 +19,7 @@ This document describes Discovery Merge as it ships today. Present tense through
 
 | Path | Responsibility |
 |---|---|
-| `starhermit.txt` | Manifest: `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.39.0`, `engine.minor=39`, capabilities `platform,storage,clipboard`, `server=score-script.js`, the `control.*` keys and `engine.gamepad.*` buttons |
+| `starhermit.txt` | Manifest: `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.44.1`, `engine.minor=44`, capabilities `platform,storage,clipboard`, `server=score-script.js`, the `control.*` keys and `engine.gamepad.*` buttons |
 | `index.html`, `starhermit-files.json` | The engine's web loader and the package's file index, written by `npm run package` (`starhermit package --web .`); never edited by hand |
 | `native/main.ts` | Entry module: screen flow, rounds and their snapshot, the play controller (selection, merges, moves, deliveries, drags, lesson gating), events → sounds and announcements, Undo / Hint / camera, results, progression, achievements, the device's daily board, score posting, input actions, the fixed-step clock and the lifecycle |
 | `native/screens.ts` | Every screen, the HUD (rails or drawers and the thumb tray, the lesson banner, the 2D board), the dialogs and toasts (`starhermit:ui`); layouts by window size |
@@ -315,3 +315,9 @@ QA bar: no console errors or warnings; no text or control clipped at 1366×768, 
 The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `ja-JP`, `nl-BE`, `zh-SG`, `ms-SG`, `ta-SG`, `zh-HK`, `yue-HK`, `nl-NL`, `fi-FI`, `sv-FI`, `et-EE`, `id-ID`, `vi-VN`, `ru-FI`, `ru-EE`, `su-ID`, `da-DE`, `lb-BE`, `co-FR`, `eu-FR`, `ca-FR`, `oc-FR`, `sl-IT`, `fur-IT`, `ca-IT`, `oc-IT`, `ca-ES`, `eu-ES`, `gl-ES`, `bew-ID`, `km-VN`.
 
 <!-- regional-localization:end -->
+
+## Engine 1.44.1
+
+Browser play uses the WebGPU-only StarHermit 1.44.1 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+
+The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.

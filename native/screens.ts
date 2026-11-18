@@ -1,3 +1,4 @@
+import { bindings } from "starhermit:input";
 import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
 import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
 // localization-runtime:attached
@@ -121,7 +122,7 @@ function art(id: string, path: string, w: number, h: number, radius: number): vo
 const keyName = (action: string): string => bindingLabel(action, "keyboard") || "—";
 
 // ------------------------------------------------------------------ the frame
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   const f = frame();
   const P = ink(pr().highContrast);
@@ -786,4 +787,11 @@ function settingsBody(w: number): void {
 export function toastOffset(): number {
   if (app.screen !== "play" || layoutNow().wide) return 0;
   return Math.max(0, (lastHeight.get("tray") ?? 64) + 8 - 16);
+}
+
+export function drawScreens(): void {
+  if (!(app.modal === "help")) { drawScreensImmediate(); return; }
+  const actions = ["up","down","left","right","select","cancel","pause","undo","hint","camera"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
 }
