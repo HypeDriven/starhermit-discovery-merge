@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T07:00:59.963761+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-18T16:51:15.819329+00:00",
+    "coverArtUpdatedAt": "2026-11-22T14:19:49.924135+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-18T16:51:15.808144+00:00",
+      "deployedAt": "2026-11-22T14:19:49.913568+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.44.1",
+      "engineVersion": "1.47.0",
       "deployWarning": null
     },
     "description": "Generate curiosities, merge matching discoveries, and fulfill requests to restore an explorer's cabinet.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-18T16:51:15.768Z",
-  "sourceCommit": "8e6f9bdad7002f53814cb9021e8e34c2a7b83701",
-  "bytesReceived": 3196380,
-  "archiveSha256": "3a693c4cae45f6818796b457a76bfaab632effcb8b3b5e9e30ce533721dc063e",
+  "publishedAt": "2026-11-22T14:19:50.291Z",
+  "sourceCommit": "32ae96abfe5b3b2b9cc6854f4b0d84c86304059b",
+  "bytesReceived": 3196437,
+  "archiveSha256": "068a1918864ccffccc1359daa63cd11c14e43d4fdc96d09f2e129ee6243312e3",
   "indexSha256": "c72ae917453d2f8482602ab1528caecdae849b34035991a9bb21464f69ab64f6",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 3196380,
+    "bytesReceived": 3196437,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.44.1",
+    "engineVersion": "1.47.0",
     "deployWarning": null
   },
   "liveVerification": {
