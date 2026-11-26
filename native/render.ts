@@ -68,6 +68,7 @@ const fillLight = new HemisphereLight(0xffffff, 0x223311, 1.25);
 scene.add(fillLight);
 
 const boardGroup = new Group();
+boardGroup.movable = false; // the tray, its rim and cells: rebuilt, never moved
 const itemGroup = new Group();
 const fxGroup = new Group();
 scene.add(boardGroup);
@@ -379,11 +380,13 @@ function buildDiorama(): void {
   ground.rotation.x = -PI / 2;
   ground.position.y = -0.42;
   ground.receiveShadow = true;
+  ground.movable = false;
   dio.add(ground);
   // Back wall of the cabinet.
   const wall = new Mesh(new BoxGeometry(level.cols * CELL + 4, 6, 0.4), std({ color: theme.sky, roughness: 0.95, map: d ? panelTexture() : null }, 0.15));
   wall.position.set(0, 2.4, -level.rows * CELL / 2 - 2.2);
   wall.receiveShadow = d;
+  wall.movable = false;
   dio.add(wall);
   // Eight pedestals with artefacts round the tray; restoration shows a share of them.
   const propMat = std({ color: theme.key, roughness: 0.35, metalness: 0.6, emissive: theme.key, emissiveIntensity: d ? 0.35 : 0.12 }, 0.9);
@@ -397,6 +400,7 @@ function buildDiorama(): void {
     const ped = new Mesh(new CylinderGeometry(0.3, 0.4, 0.8, d ? ps : Math.min(10, ps)), pedMat);
     ped.castShadow = d;
     ped.receiveShadow = d;
+    ped.movable = false; // its artefact turns; the pedestal does not
     const shape = i % 3 === 0 ? new IcosahedronGeometry(0.28, 0)
       : i % 3 === 1 ? new ConeGeometry(0.22, 0.55, 8) : new TorusKnotGeometry(0.16, 0.06, ps * 3, Math.max(6, Math.round(ps / 2)));
     const art = new Mesh(shape, propMat);

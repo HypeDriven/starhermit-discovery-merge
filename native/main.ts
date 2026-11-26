@@ -24,8 +24,8 @@ import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // (src/session.js clock) reads them, and the countdown, the input lock after
 // an action, the hint's 2.6 s and the 0.7 s before the results wait on the
 // same steps, so play scripts replay exactly.
-import { clipboard, frame, levelSettings, strings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
-import { onAction, onPointerButton, onPointerMove, onTouch, vibrate } from "starhermit:input";
+import { clipboard, frame, levelSettings, strings, onFixedUpdate, onPreferencesChange, onQuit, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate, setTargetFps } from "starhermit:engine";
+import { onAction, onPointerButton, onPointerMove, onTouch, primaryPointer, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded, requestSignIn } from "starhermit:platform";
 import { GameSession, clock } from "../src/session.js";
@@ -810,9 +810,21 @@ onFixedUpdate(() => {
 
 let frameDt = 0;
 let hcWas: boolean | null = null;
+/** The game's frame cap (host API 1.49 setTargetFps, set only on a change): 30 on the title (its
+ * page covers the window and the cabinet does not draw there) and on phone levels (levelIndex <= 3)
+ * under a finger; none otherwise. The round clock stays 60 fixed steps a second. */
+let frameCap = -1;
+function capFrames(): void {
+  const cap = app.screen === "title" || (frame().levelIndex <= 3 && primaryPointer() === "coarse") ? 30 : 0;
+  if (cap === frameCap) return;
+  frameCap = cap;
+  setTargetFps(cap || null);
+}
+
 onUpdate((dt) => {
   frameDt = dt;
   applyLook();
+  capFrames();
   audio.update();
   const hc = ui.preferences().highContrast;
   applyContrast(hc);
