@@ -11,7 +11,7 @@ This document describes Discovery Merge as it ships today. Present tense through
 | Genre | Solo merge/discovery puzzle with request goals |
 | Players | 1; per-device daily board |
 | Session length | Journey stage 1–4 min; Daily 5–10 min; Learn lesson under a minute |
-| Platforms | StarHermit engine 1.51.0 script game: natively in the StarHermit client, and in desktop and mobile browsers (portrait and landscape) by the engine's web runtime; a full 2D board option |
+| Platforms | StarHermit engine 1.53.0 script game: natively in the StarHermit client, and in desktop and mobile browsers (portrait and landscape) by the engine's web runtime; a full 2D board option |
 | Rendering | `starhermit:scene` tabletop diorama (three.js-like); `starhermit:ui` immediate-mode menus, HUD and dialogs, with every cell an accessibility target |
 | Backend | `score-script.js` (platform game script) posts ranked totals to the `high-score` board; fully playable as a guest and offline |
 
@@ -19,7 +19,7 @@ This document describes Discovery Merge as it ships today. Present tense through
 
 | Path | Responsibility |
 |---|---|
-| `starhermit.txt` | Manifest: `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.51.0`, `engine.minor=51`, capabilities `platform,storage,clipboard`, `server=score-script.js`, the `control.*` keys and `engine.gamepad.*` buttons |
+| `starhermit.txt` | Manifest: `launch=index.html`, `engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.53.0`, `engine.minor=53`, capabilities `platform,storage,clipboard`, `server=score-script.js`, the `control.*` keys and `engine.gamepad.*` buttons |
 | `index.html`, `starhermit-files.json` | The engine's web loader and the package's file index, written by `npm run package` (`starhermit package --web .`); never edited by hand |
 | `native/main.ts` | Entry module: screen flow, rounds and their snapshot, the play controller (selection, merges, moves, deliveries, drags, lesson gating), events → sounds and announcements, Undo / Hint / camera, results, progression, achievements, the device's daily board, score posting, input actions, the fixed-step clock and the lifecycle |
 | `native/screens.ts` | Every screen, the HUD (rails or drawers and the thumb tray, the lesson banner, the 2D board), the dialogs and toasts (`starhermit:ui`); layouts by window size |
@@ -316,16 +316,18 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 <!-- regional-localization:end -->
 
-## Engine 1.51.0
+## Engine 1.53.0
 
-Browser play uses the StarHermit 1.51.0 web runtime on WebGPU, or WebGL 2 where WebGPU is missing. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the StarHermit 1.53.0 web runtime on WebGPU, or WebGL 2 where WebGPU is missing. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
 
 Browser rendering uses the engine's asynchronous pipeline creation so newly encountered materials do not stall the page. Native play retains the engine's synchronous pipeline behavior.
 
-**Frame rate (host API 1.51 `setTargetFps`).** The game caps itself at 30 frames a second on the title (its page covers the window and the cabinet does not draw there) and, under a finger (`primaryPointer() === "coarse"`), on the phone graphics levels (`levelIndex` ≤ 3), where even 33 ms frames replace uneven ones; elsewhere there is no game cap. The round clock stays 60 fixed steps a second whatever the frame rate. The engine sets the cap aside while its menus are open, and the player's Frame rate limit still applies.
+**Frame rate (host API 1.53 `setTargetFps`).** The game caps itself at 30 frames a second on the title (its page covers the window and the cabinet does not draw there) and, under a finger (`primaryPointer() === "coarse"`), on the phone graphics levels (`levelIndex` ≤ 3), where even 33 ms frames replace uneven ones; elsewhere there is no game cap. The round clock stays 60 fixed steps a second whatever the frame rate. The engine sets the cap aside while its menus are open, and the player's Frame rate limit still applies.
 
-**Still scenery (host API 1.51).** The tray (its base, brass rim and cells, as one group), the cabinet floor and back wall, and the restoration pedestals are `movable = false`, so the renderer caches them in shadow maps from the first frame and the scene's sync skips their transforms. Items, the turning artefacts on the pedestals, the swaying lantern, the rings, motes and sparks stay movable.
+**Still scenery (host API 1.53).** The tray (its base, brass rim and cells, as one group), the cabinet floor and back wall, and the restoration pedestals are `movable = false`, so the renderer caches them in shadow maps from the first frame and the scene's sync skips their transforms. Items, the turning artefacts on the pedestals, the swaying lantern, the rings, motes and sparks stay movable.
 
 Higher graphics tiers use native per-object motion blur for moving pieces and effects. Camera motion stays sharp, lower tiers omit the effect, and the runtime's Motion blur and Reduce motion preferences remain authoritative.
+
+On engine 1.53.0, browser play through WebGL 2 compiles a frame's shader programs together and holds that frame until they are linked, blends skinned meshes in one pass, reuses the window pass's depth, and uses a hardware WebGL 2 context when WebGPU's adapter is software.
