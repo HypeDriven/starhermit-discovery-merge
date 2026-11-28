@@ -35,9 +35,6 @@ export function loadSfx(): void {
   for (const name of new Set(Object.values(SAMPLES))) {
     loadClip(`sfx/${name}.opus`).then((c) => { clips.set(name, c); }, (e: unknown) => console.warn(`sfx ${name}: ${String(e)}`));
   }
-  const failed = (e: unknown): void => console.warn(`audio: ${String(e)}`);
-  renderBed().catch(failed);
-  FREQS.forEach((f, i) => { renderNote(i, f).catch(failed); });
 }
 
 /** Plays a cue's sample (once loaded). */
@@ -102,7 +99,19 @@ export function stopRound(): void {
 export function setSuspended(on: boolean): void { suspended = on; }
 
 /** Each frame once the mixer runs: the bed, then the music's steps by mixer time. */
+let __bedsStarted = false;
+function startBeds(): void {
+  if (__bedsStarted) return;
+  __bedsStarted = true;
+  void (async () => {
+    const failed = (e: unknown): void => console.warn(`audio: ${String(e)}`);
+    renderBed().catch(failed);
+    FREQS.forEach((f, i) => { renderNote(i, f).catch(failed); });
+  })();
+}
+
 export function update(): void {
+  startBeds();
   if (context.state !== "running") return;
   try {
     const want = roundOn && !suspended;
